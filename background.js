@@ -3,19 +3,42 @@ function log(message) {
   console.log(`[${timestamp}] ${message}`);
 }
 
-const audio = new Audio(chrome.runtime.getURL("/assets/notification.mp3"));
+let offscreenCreating; // A global promise to avoid concurrency issues
 
-function playSound() {
-  chrome.storage.sync.get("soundEnabled", (data) => {
+async function setupOffscreenDocument(path) {
+  const offscreenUrl = chrome.runtime.getURL(path);
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [offscreenUrl],
+  });
+
+  if (existingContexts.length > 0) {
+    return; // The offscreen document is already open
+  }
+
+  if (offscreenCreating) {
+    await offscreenCreating;
+  } else {
+    offscreenCreating = chrome.offscreen.createDocument({
+      url: path,
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Playing notification sounds",
+    });
+    await offscreenCreating;
+    offscreenCreating = null;
+  }
+}
+
+async function playSound() {
+  chrome.storage.sync.get("soundEnabled", async (data) => {
     const soundEnabled = data.soundEnabled !== false;
     if (soundEnabled) {
-      audio.currentTime = 0;
-      setTimeout(() => {
-        audio
-          .play()
-          .then(() => log("Sound played successfully."))
-          .catch((error) => log(`Error playing sound: ${error}`));
-      }, 100);
+      await setupOffscreenDocument("offscreen.html");
+      chrome.runtime.sendMessage({
+        target: "offscreen",
+        type: "play-sound",
+      });
+      log("Sound playback requested via offscreen document.");
     } else {
       log("Sound is disabled. Notification sent without sound.");
     }
