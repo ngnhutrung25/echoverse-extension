@@ -1,11 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
-    tabHourly: document.getElementById("tab-hourly"),
-    tabRecurring: document.getElementById("tab-recurring"),
+    hourlyToggle: document.getElementById("hourly-toggle"),
+    recurringToggle: document.getElementById("recurring-toggle"),
     hourlySettings: document.getElementById("hourly-settings"),
     recurringSettings: document.getElementById("recurring-settings"),
     startButton: document.getElementById("start-timer"),
+    statusBox: document.getElementById("status-box"),
     statusDiv: document.getElementById("status"),
+    todayCount: document.getElementById("today-count"),
+    streakCount: document.getElementById("streak-count"),
     hourlyMessageInput: document.getElementById("hourly-message"),
     recurringIntervalInput: document.getElementById("recurring-interval"),
     recurringMessageInput: document.getElementById("recurring-message"),
@@ -13,123 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     soundToggleIcon: document.getElementById("sound-toggle-icon"),
   };
 
-  const CLASS_ACTIVE_TAB = ["text-blue-600", "bg-gray-100", "active"];
-  const CLASS_INACTIVE_TAB = ["hover:text-gray-600", "hover:bg-gray-50"];
-
-  function activateTab(selectedTab, otherTab, selectedSettings, otherSettings) {
-    selectedTab.classList.add(...CLASS_ACTIVE_TAB);
-    selectedTab.classList.remove(...CLASS_INACTIVE_TAB);
-
-    otherTab.classList.remove(...CLASS_ACTIVE_TAB);
-    otherTab.classList.add(...CLASS_INACTIVE_TAB);
-
-    selectedSettings.classList.remove("hidden");
-    otherSettings.classList.add("hidden");
-  }
-
-  function activateHourlyTab() {
-    activateTab(
-      elements.tabHourly,
-      elements.tabRecurring,
-      elements.hourlySettings,
-      elements.recurringSettings
-    );
-  }
-
-  function activateRecurringTab() {
-    activateTab(
-      elements.tabRecurring,
-      elements.tabHourly,
-      elements.recurringSettings,
-      elements.hourlySettings
-    );
-  }
-
-  function loadSettings() {
-    chrome.storage.sync.get(
-      ["mode", "interval", "message", "soundEnabled"],
-      (data) => {
-        if (data.mode === "hourly") {
-          activateHourlyTab();
-          if (data.message) {
-            elements.hourlyMessageInput.value = data.message;
-          }
-        } else if (data.mode === "recurring") {
-          activateRecurringTab();
-          if (data.interval) {
-            elements.recurringIntervalInput.value = data.interval;
-          }
-          if (data.message) {
-            elements.recurringMessageInput.value = data.message;
-          }
-        } else {
-          activateHourlyTab();
-        }
-
-        updateNextAlertStatus();
-        updateSoundToggleIcon(data.soundEnabled !== false);
-      }
-    );
-  }
-
-  function updateStatus(message, isError = false) {
-    elements.statusDiv.classList.toggle("text-blue-600", !isError);
-    elements.statusDiv.classList.toggle("text-red-500", isError);
-    elements.statusDiv.textContent = message;
-
-    if (!isError) {
-      setTimeout(() => {
-        updateNextAlertStatus();
-      }, 5000);
-    }
-  }
-
-  function updateNextAlertStatus() {
-    chrome.alarms.getAll((alarms) => {
-      if (alarms.length === 0) {
-        elements.statusDiv.textContent =
-          "Mẹo hữu ích: Nội dung lời nhắn sẽ hiển thị trong thông báo khi chuông reo!";
-        return;
-      }
-      const nextAlarm = alarms.reduce((earliest, alarm) =>
-        alarm.scheduledTime < earliest.scheduledTime ? alarm : earliest
-      );
-      const nextAlertDate = new Date(nextAlarm.scheduledTime);
-      elements.statusDiv.textContent = `Chuông báo tiếp theo: ${nextAlertDate.toLocaleTimeString()}`;
-    });
-  }
-
-  function handleStartButtonClick() {
-    const selectedMode = elements.tabHourly.classList.contains("active")
-      ? "hourly"
-      : "recurring";
-
-    const payload = {
-      action: "start-timer",
-      mode: selectedMode,
-      message: "",
-    };
-
-    if (selectedMode === "hourly") {
-      payload.message = elements.hourlyMessageInput.value.trim();
-    } else {
-      payload.interval = parseInt(elements.recurringIntervalInput.value, 10);
-      payload.message = elements.recurringMessageInput.value.trim();
-    }
-
-    chrome.runtime.sendMessage(payload, (response) => {
-      if (response && response.status) {
-        updateStatus(response.status);
-        chrome.storage.sync.set({
-          mode: selectedMode,
-          message: payload.message,
-          interval: payload.interval,
-        });
-      } else if (response && response.error) {
-        updateStatus(response.error, true);
-      }
-    });
-  }
+  let statusTimer = null;
 
   function updateSoundToggleIcon(soundEnabled) {
     if (soundEnabled) {
@@ -141,14 +28,106 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function updateStatus(message, isError = false) {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+    }
+
+    elements.statusBox.classList.remove("hidden");
+    elements.statusDiv.classList.toggle("text-blue-600", !isError);
+    elements.statusDiv.classList.toggle("text-red-500", isError);
+    elements.statusDiv.textContent = message;
+
+    statusTimer = setTimeout(() => {
+      clearStatus();
+    }, 3000);
+  }
+
+  function clearStatus() {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+
+    elements.statusDiv.textContent = "";
+    elements.statusBox.classList.add("hidden");
+  }
+
+  function syncModeUI() {
+    elements.hourlySettings.classList.toggle("hidden", !elements.hourlyToggle.checked);
+    elements.recurringSettings.classList.toggle("hidden", !elements.recurringToggle.checked);
+  }
+
+  function setMode(hourly, recurring) {
+    elements.hourlyToggle.checked = hourly;
+    elements.recurringToggle.checked = recurring;
+    syncModeUI();
+  }
+
+  function loadSettings() {
+    clearStatus();
+    chrome.storage.sync.get(
+      [
+        "hourlyEnabled",
+        "hourlyMessage",
+        "hourlyIntervalMinutes",
+        "recurringEnabled",
+        "intervalMinutes",
+        "message",
+        "dailyStats",
+        "streak",
+        "soundEnabled",
+      ],
+      (data) => {
+        updateSoundToggleIcon(data.soundEnabled !== false);
+        setMode(data.hourlyEnabled !== false, data.recurringEnabled !== false);
+        elements.hourlyMessageInput.value = data.hourlyMessage || data.message || "";
+        elements.recurringIntervalInput.value = data.intervalMinutes || 30;
+        elements.recurringMessageInput.value = data.message || "";
+
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const todayStats = (data.dailyStats && data.dailyStats[todayKey]) || { shown: 0 };
+        const streak = data.streak || { current: 0 };
+        elements.todayCount.textContent = String(todayStats.shown || 0);
+        elements.streakCount.textContent = String(streak.current || 0);
+      }
+    );
+  }
+
+  function handleStartButtonClick() {
+    const payload = {
+      action: "start-timer",
+      hourlyEnabled: elements.hourlyToggle.checked,
+      recurringEnabled: elements.recurringToggle.checked,
+      hourlyMessage: elements.hourlyMessageInput.value.trim(),
+      recurringIntervalMinutes: parseInt(elements.recurringIntervalInput.value, 10),
+      recurringMessage: elements.recurringMessageInput.value.trim(),
+    };
+
+    chrome.runtime.sendMessage(payload, (response) => {
+      if (response && response.status) {
+        updateStatus(response.status);
+        chrome.storage.sync.set({
+          hourlyEnabled: payload.hourlyEnabled,
+          recurringEnabled: payload.recurringEnabled,
+          hourlyMessage: payload.hourlyMessage,
+          recurringIntervalMinutes: payload.recurringIntervalMinutes || 30,
+          recurringMessage: payload.recurringMessage,
+        });
+      } else if (response && response.error) {
+        updateStatus(response.error, true);
+      }
+    });
+  }
+
   function handleSoundToggleClick() {
     chrome.runtime.sendMessage({ action: "toggle-sound" }, (response) => {
       updateSoundToggleIcon(response.soundEnabled);
     });
   }
 
-  elements.tabHourly.addEventListener("click", activateHourlyTab);
-  elements.tabRecurring.addEventListener("click", activateRecurringTab);
+  elements.hourlyToggle.addEventListener("change", syncModeUI);
+  elements.recurringToggle.addEventListener("change", syncModeUI);
   elements.startButton.addEventListener("click", handleStartButtonClick);
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
 

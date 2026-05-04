@@ -1,9 +1,31 @@
 {
   "manifest_version": 3,
-  "name": "Chime",
-  "version": "0.4.0",
+  "name": "Echoverse",
+  "version": "0.5.0",
   "description": "Set custom hourly or recurring alerts with custom messages and sound notifications (can be toggled on/off).",
-  "permissions": ["notifications", "storage", "alarms", "idle", "offscreen"],
+  "permissions": [
+    "notifications",
+    "storage",
+    "alarms",
+    "idle",
+    "offscreen",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/overlay.js"],
+      "css": ["content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "background": {
     "service_worker": "background.js"
   },
