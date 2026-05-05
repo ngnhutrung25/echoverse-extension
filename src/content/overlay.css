@@ -86,6 +86,7 @@
   border-radius: 16px;
   padding: 12px 18px;
   font-weight: 600;
+  font-size: clamp(14px, 2vw, 16px);
   cursor: pointer;
   color: #111827;
   background: #f9fafb;
@@ -107,36 +108,36 @@
   outline-offset: 2px;
 }
 
-#echoverse-overlay .echoverse-actions button[data-action="skip"] {
+#echoverse-overlay .echoverse-actions button[data-action="SKIP"] {
   background: #ffffff;
 }
 
-#echoverse-overlay .echoverse-actions button[data-action="snooze"],
-#echoverse-overlay .echoverse-actions button[data-action="disable_today"] {
+#echoverse-overlay .echoverse-actions button[data-action="SNOOZE"],
+#echoverse-overlay .echoverse-actions button[data-action="DISABLE_TODAY"] {
   background: #111827;
   color: #ffffff;
   border-color: #111827;
 }
 
-#echoverse-overlay .echoverse-actions button[data-action="snooze"]:hover,
+#echoverse-overlay .echoverse-actions button[data-action="SNOOZE"]:hover,
 #echoverse-overlay
   .echoverse-actions
-  button[data-action="disable_today"]:hover {
+  button[data-action="DISABLE_TODAY"]:hover {
   background: #000000;
   border-color: #000000;
 }
 
-#echoverse-overlay .echoverse-actions button[data-action="skip"]:hover {
+#echoverse-overlay .echoverse-actions button[data-action="SKIP"]:hover {
   background: #f3f4f6;
 }
 
-#echoverse-overlay .echoverse-actions button[data-action="skip"]:focus-visible,
+#echoverse-overlay .echoverse-actions button[data-action="SKIP"]:focus-visible,
 #echoverse-overlay
   .echoverse-actions
-  button[data-action="snooze"]:focus-visible,
+  button[data-action="SNOOZE"]:focus-visible,
 #echoverse-overlay
   .echoverse-actions
-  button[data-action="disable_today"]:focus-visible {
+  button[data-action="DISABLE_TODAY"]:focus-visible {
   outline: 2px solid #000000aa;
   outline-offset: 2px;
 }
@@ -158,7 +159,6 @@
   object-fit: cover;
   border-radius: 20px;
   overflow: hidden;
-  opacity: 0;
   border: 1px solid #e5e7eb;
   background: #f3f4f6;
   transition: opacity 220ms ease;

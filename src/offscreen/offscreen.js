@@ -1,30 +1,56 @@
-import { MESSAGE_TYPES, TARGETS } from "../constants.js";
+import { MESSAGE_TYPES } from "../constants.js";
+import { log } from "../helpers.js";
 
 const AUDIO_ID = "notification-sound";
-const LOG_SOUND_PLAYED = "Sound played successfully in offscreen document.";
-const LOG_SOUND_ERROR = "Error playing sound in offscreen document:";
+const LOG_MESSAGES = {
+  SOUND_PLAYED: "Sound played successfully in offscreen document.",
+  SOUND_ERROR: "Error playing sound in offscreen document.",
+  AUDIO_NOT_FOUND: "Audio element not found in offscreen document.",
+};
 
+let audioElement = null;
+
+/**
+ * Initialize audio element reference
+ */
+function initializeAudio() {
+  if (!audioElement) {
+    audioElement = document.getElementById(AUDIO_ID);
+    if (!audioElement) {
+      log(LOG_MESSAGES.AUDIO_NOT_FOUND);
+    }
+  }
+  return audioElement;
+}
+
+/**
+ * Reset audio to beginning
+ */
+function resetAudio(audio) {
+  audio.currentTime = 0;
+}
+
+/**
+ * Play notification sound
+ */
 async function playSound() {
-  const audio = document.getElementById(AUDIO_ID);
+  const audio = initializeAudio();
   if (!audio) {
     return;
   }
 
-  audio.currentTime = 0;
+  resetAudio(audio);
+
   try {
     await audio.play();
-    const timestamp = new Date().toLocaleString();
-    console.log(`[${timestamp}] ${LOG_SOUND_PLAYED}`);
+    log(LOG_MESSAGES.SOUND_PLAYED);
   } catch (error) {
-    console.error(LOG_SOUND_ERROR, error);
+    log(LOG_MESSAGES.SOUND_ERROR + "\n" + error);
   }
 }
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (
-    message.target === TARGETS.OFFSCREEN &&
-    message.type === MESSAGE_TYPES.PLAY_SOUND
-  ) {
+  if (message.type === MESSAGE_TYPES.PLAY_SOUND_OFFSCREEN) {
     playSound();
   }
 });

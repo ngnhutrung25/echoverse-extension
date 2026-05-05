@@ -28,32 +28,23 @@ export const MESSAGE_TYPES = {
   SHOW_OVERLAY: "SHOW_OVERLAY",
   HIDE_OVERLAY: "HIDE_OVERLAY",
   OVERLAY_ACTION: "OVERLAY_ACTION",
-  GET_STATS: "GET_STATS",
-  GET_SETTINGS: "GET_SETTINGS",
-  SET_SETTINGS: "SET_SETTINGS",
-  TRIGGER_NOW: "TRIGGER_NOW",
-  PLAY_SOUND: "PLAY_SOUND",
-  PING_BACKGROUND: "PING_BACKGROUND",
-  GET_DAILY_STATS: "GET_DAILY_STATS",
+  PLAY_SOUND_OFFSCREEN: "PLAY_SOUND_OFFSCREEN",
+  START_TIMER: "START_TIMER",
+  TOGGLE_SOUND: "TOGGLE_SOUND",
+  SKIP: "SKIP",
+  SNOOZE: "SNOOZE",
+  DISABLE_TODAY: "DISABLE_TODAY",
 };
 
-export const TARGETS = {
-  OFFSCREEN: "OFFSCREEN",
-};
-
-export const ACTIONS = {
-  START_TIMER: "start-timer",
-  TOGGLE_SOUND: "toggle-sound",
-  SKIP: "skip",
-  SNOOZE: "snooze",
-  DISABLE_TODAY: "disable_today",
+export const SOURCE_TYPES = {
+  STARTUP: "STARTUP",
+  WAKE: "WAKE",
+  ALARM: "ALARM",
 };
 
 export const STORAGE_KEYS = {
   SOUND_ENABLED: "soundEnabled",
   MODE: "mode",
-  INTERVAL_MINUTES: "intervalMinutes",
-  CUSTOM_INTERVAL_MINUTES: "customIntervalMinutes",
   MESSAGE: "message",
   MESSAGE_POOL: "messagePool",
   LAST_TRIGGERED_AT: "lastTriggeredAt",
@@ -62,37 +53,10 @@ export const STORAGE_KEYS = {
   MIGRATION_DONE: "migrationDone",
   HOURLY_MESSAGE: "hourlyMessage",
   RECURRING_MESSAGE: "recurringMessage",
-  INTERVAL: "interval",
   DAILY_STATS: "dailyStats",
-  STREAK: "streak",
   HOURLY_ENABLED: "hourlyEnabled",
   RECURRING_ENABLED: "recurringEnabled",
   HOURLY_INTERVAL_MINUTES: "hourlyIntervalMinutes",
   RECURRING_INTERVAL_MINUTES: "recurringIntervalMinutes",
-  SOUND_PRESET: "soundPreset",
-  CUSTOM_AUDIO_URL: "customAudioUrl",
-  DEBUG_OVERLAY_ALWAYS_ON: "debugOverlayAlwaysOn",
   VOLUME: "volume",
-};
-
-export const UI = {
-  OVERLAY_ID: "echoverse-overlay",
-  OVERLAY_TITLE: "Time to rest",
-  OVERLAY_MESSAGE: "Stand up. Stretch. Drink water.",
-  OVERLAY_SKIP: "Skip",
-  OVERLAY_SNOOZE: "Snooze 5m",
-  OVERLAY_DISABLE_TODAY: "Disable for today",
-  OVERLAY_KICKER: "echoverse",
-  DEBUG_OVERLAY_TITLE: "Debug overlay",
-  DEBUG_OVERLAY_MESSAGE: "Overlay always on for UI testing.",
-  RECURRING_ENABLED_STATUS_PREFIX: "Echoverse đã bật: ",
-  RECURRING_ENABLED_STATUS_SUFFIX: ".",
-  HOURLY_MODE_LABEL: "theo giờ",
-  RECURRING_MODE_LABEL: "lặp lại",
-  REMINDER_TITLE: "Time to rest",
-};
-
-export const ASSETS = {
-  ICON_128: "icons/icon128.png",
-  OFFSCREEN_HTML: "src/offscreen/offscreen.html",
 };
