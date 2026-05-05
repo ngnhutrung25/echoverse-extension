@@ -151,11 +151,11 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 // Debug overlay (remove in production)
-setTimeout(() => {
-  showOverlay({
-    title: UI.DEBUG_OVERLAY_TITLE,
-    message: UI.DEBUG_OVERLAY_MESSAGE,
-    imageUrl:
-      "https://i.natgeofe.com/n/d35b89a0-cd33-4648-bf2d-459ad60b66ae/atedmunds.jpg",
-  });
-}, 500);
+// setTimeout(() => {
+//   showOverlay({
+//     title: UI.DEBUG_OVERLAY_TITLE,
+//     message: UI.DEBUG_OVERLAY_MESSAGE,
+//     imageUrl:
+//       "https://i.natgeofe.com/n/d35b89a0-cd33-4648-bf2d-459ad60b66ae/atedmunds.jpg",
+//   });
+// }, 500);

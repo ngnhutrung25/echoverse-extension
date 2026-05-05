@@ -48,7 +48,7 @@ async function playSound() {
     log(`Sound enabled state: ${soundEnabled}`);
 
     if (soundEnabled) {
-      await setupOffscreenDocument("src/offscreen/offscreen.html");
+      await setupOffscreenDocument("src/offscreen/index.html");
 
       return new Promise((resolve) => {
         chrome.runtime.sendMessage(
