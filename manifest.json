@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Echoverse",
   "version": "0.5.0",
-  "description": "Set custom hourly or recurring alerts with custom messages and sound notifications (can be toggled on/off).",
+  "description": "Chrome extension for time-based reminders with customizable messages, sound notifications, and full-screen overlays. Supports hourly and recurring intervals with statistics tracking.",
   "permissions": [
     "notifications",
     "storage",
@@ -27,7 +27,8 @@
     }
   ],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "src/background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "src/popup/popup.html",
@@ -40,6 +41,7 @@
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "128": "icons/icon128.png",
+    "512": "icons/icon512.png"
   }
 }

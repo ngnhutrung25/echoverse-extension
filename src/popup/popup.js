@@ -1,3 +1,5 @@
+import { DEFAULTS, STORAGE_KEYS } from "../constants.js";
+
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
     hourlyToggle: document.getElementById("hourly-toggle"),
@@ -40,13 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     elements.statusBox.classList.remove("hidden");
-    elements.statusDiv.classList.toggle("text-black", !isError);
-    elements.statusDiv.classList.toggle("text-red-500", isError);
+    elements.statusDiv.dataset.error = String(isError);
     elements.statusDiv.textContent = message;
 
     statusTimer = setTimeout(() => {
       clearStatus();
-    }, 3000);
+    }, DEFAULTS.STATUS_TIMEOUT_MS);
   }
 
   function clearStatus() {
@@ -74,14 +75,14 @@ document.addEventListener("DOMContentLoaded", () => {
     clearStatus();
     chrome.storage.sync.get(
       [
-        "hourlyEnabled",
-        "hourlyIntervalMinutes",
-        "recurringEnabled",
-        "intervalMinutes",
-        "customIntervalMinutes",
-        "message",
-        "dailyStats",
-        "soundEnabled",
+        STORAGE_KEYS.HOURLY_ENABLED,
+        STORAGE_KEYS.HOURLY_INTERVAL_MINUTES,
+        STORAGE_KEYS.RECURRING_ENABLED,
+        STORAGE_KEYS.INTERVAL_MINUTES,
+        STORAGE_KEYS.CUSTOM_INTERVAL_MINUTES,
+        STORAGE_KEYS.MESSAGE,
+        STORAGE_KEYS.DAILY_STATS,
+        STORAGE_KEYS.SOUND_ENABLED,
       ],
       (data) => {
         updateSoundToggleIcon(data.soundEnabled !== false);
@@ -130,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function handleSoundToggleClick() {
     elements.soundToggleButton.disabled = true;
     setSoundIconState(!getSoundIconState());
-    chrome.runtime.sendMessage({ action: "toggle-sound" }, (response) => {
+    chrome.runtime.sendMessage({ action: ACTIONS.TOGGLE_SOUND }, (response) => {
       updateSoundToggleIcon(response?.soundEnabled !== false);
       elements.soundToggleButton.disabled = false;
     });

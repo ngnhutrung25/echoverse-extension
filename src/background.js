@@ -1,18 +1,35 @@
+import {
+  ACTIONS,
+  ALARM_NAMES,
+  ASSETS,
+  DEFAULTS,
+  LIMITS,
+  MESSAGE_TYPES,
+  MODES,
+  STORAGE_KEYS,
+  TARGETS,
+  UI,
+} from "./constants.js";
+
 function log(message) {
   const timestamp = new Date().toLocaleString();
   console.log(`[${timestamp}] ${message}`);
 }
 
-const HOURLY_ALARM_NAME = "echoverse-hourly-reminder";
-const RECURRING_ALARM_NAME = "echoverse-recurring-reminder";
-const SNOOZE_ALARM_NAME = "echoverse-snooze";
-const DAILY_RESET_ALARM_NAME = "echoverse-daily-reset";
-const DEFAULT_HOURLY_INTERVAL = 60;
-const DEFAULT_RECURRING_INTERVAL = 30;
-const DEFAULT_MESSAGE = "Drink water";
-const DEFAULT_MESSAGE_POOL = ["Drink water", "Look away from screen", "Breathe 10 seconds"];
-const TIMER_DEBOUNCE_MS = 90 * 1000;
-const MAX_TIMER_GAP_MS = 10 * 60 * 1000;
+const {
+  HOURLY: HOURLY_ALARM_NAME,
+  RECURRING: RECURRING_ALARM_NAME,
+  SNOOZE: SNOOZE_ALARM_NAME,
+  DAILY_RESET: DAILY_RESET_ALARM_NAME,
+} = ALARM_NAMES;
+const {
+  HOURLY_INTERVAL_MINUTES: DEFAULT_HOURLY_INTERVAL,
+  RECURRING_INTERVAL_MINUTES: DEFAULT_RECURRING_INTERVAL,
+  MESSAGE: DEFAULT_MESSAGE,
+  MESSAGE_POOL: DEFAULT_MESSAGE_POOL,
+} = DEFAULTS;
+const { TIMER_DEBOUNCE_MS, MAX_TIMER_GAP_MS } = LIMITS;
+const STORAGE = STORAGE_KEYS;
 const DEBUG_ENABLED = false;
 
 let offscreenCreating;
@@ -43,13 +60,13 @@ async function setupOffscreenDocument(path) {
 }
 
 async function playSound() {
-  const data = await chrome.storage.sync.get("soundEnabled");
+  const data = await chrome.storage.sync.get(STORAGE.SOUND_ENABLED);
   const soundEnabled = data.soundEnabled !== false;
   if (soundEnabled) {
-    await setupOffscreenDocument("src/offscreen/offscreen.html");
+    await setupOffscreenDocument(ASSETS.OFFSCREEN_HTML);
     chrome.runtime.sendMessage({
-      target: "offscreen",
-      type: "play-sound",
+      target: TARGETS.OFFSCREEN,
+      type: MESSAGE_TYPES.PLAY_SOUND,
     });
     log("Sound playback requested via offscreen document.");
   } else {
@@ -61,7 +78,7 @@ function sendNotification(title, message) {
   chrome.notifications.create(
     {
       type: "basic",
-      iconUrl: "icons/icon128.png",
+      iconUrl: ASSETS.ICON_128,
       title,
       message,
       priority: 2,
@@ -87,7 +104,7 @@ function debugLog(message) {
 }
 
 function getAlarmNameForMode(mode) {
-  return mode === "hourly" ? HOURLY_ALARM_NAME : RECURRING_ALARM_NAME;
+  return mode === MODES.HOURLY ? HOURLY_ALARM_NAME : RECURRING_ALARM_NAME;
 }
 
 function getAlarmConfigForMode(mode, intervalMinutes) {
@@ -111,13 +128,12 @@ function shouldIgnoreWakeTrigger(data, source) {
 }
 
 function shouldTriggerOnWake(data, mode) {
-  if (mode === "hourly") {
+  if (mode === MODES.HOURLY) {
     return true;
   }
 
   return data.disableTodayUntil !== getTodayKey();
 }
-
 
 function getTodayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -132,16 +148,26 @@ function getReminderAlarmName(mode) {
 }
 
 function getReminderIntervalMinutes(data, mode) {
-  if (mode === "hourly") {
-    return Math.max(1, Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL));
+  if (mode === MODES.HOURLY) {
+    return Math.max(
+      1,
+      Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL),
+    );
   }
 
-  const value = Number(data.customIntervalMinutes || data.intervalMinutes || DEFAULT_RECURRING_INTERVAL);
-  return Math.max(1, Number.isFinite(value) ? value : DEFAULT_RECURRING_INTERVAL);
+  const value = Number(
+    data.customIntervalMinutes ||
+      data.intervalMinutes ||
+      DEFAULT_RECURRING_INTERVAL,
+  );
+  return Math.max(
+    1,
+    Number.isFinite(value) ? value : DEFAULT_RECURRING_INTERVAL,
+  );
 }
 
 function getReminderMessage(data, mode) {
-  if (mode === "hourly") {
+  if (mode === MODES.HOURLY) {
     return data.hourlyMessage || data.message || DEFAULT_MESSAGE;
   }
 
@@ -149,26 +175,28 @@ function getReminderMessage(data, mode) {
 }
 
 function getReminderEnabled(data, mode) {
-  return mode === "hourly" ? data.hourlyEnabled !== false : data.recurringEnabled !== false;
+  return mode === MODES.HOURLY
+    ? data.hourlyEnabled !== false
+    : data.recurringEnabled !== false;
 }
 
 async function readSettings() {
   return await chrome.storage.sync.get([
-    "mode",
-    "intervalMinutes",
-    "customIntervalMinutes",
-    "message",
-    "messagePool",
-    "soundEnabled",
-    "lastTriggeredAt",
-    "nextDueAt",
-    "disableTodayUntil",
-    "migrationDone",
-    "hourlyMessage",
-    "recurringMessage",
-    "interval",
-    "dailyStats",
-    "streak",
+    STORAGE_KEYS.MODE,
+    STORAGE_KEYS.INTERVAL_MINUTES,
+    STORAGE_KEYS.CUSTOM_INTERVAL_MINUTES,
+    STORAGE_KEYS.MESSAGE,
+    STORAGE_KEYS.MESSAGE_POOL,
+    STORAGE_KEYS.SOUND_ENABLED,
+    STORAGE_KEYS.LAST_TRIGGERED_AT,
+    STORAGE_KEYS.NEXT_DUE_AT,
+    STORAGE_KEYS.DISABLE_TODAY_UNTIL,
+    STORAGE_KEYS.MIGRATION_DONE,
+    STORAGE_KEYS.HOURLY_MESSAGE,
+    STORAGE_KEYS.RECURRING_MESSAGE,
+    STORAGE_KEYS.INTERVAL,
+    STORAGE_KEYS.DAILY_STATS,
+    STORAGE_KEYS.STREAK,
   ]);
 }
 
@@ -210,12 +238,15 @@ function updateStreak(streak, todayKey) {
 
 function normalizeInterval(data) {
   const value = Number(
-    data.customIntervalMinutes || data.intervalMinutes || data.interval || 30,
+    data.customIntervalMinutes ||
+      data.intervalMinutes ||
+      data.interval ||
+      DEFAULT_RECURRING_INTERVAL,
   );
   if (Number.isFinite(value)) {
     return Math.max(5, Math.round(value / 5) * 5);
   }
-  return 30;
+  return DEFAULT_RECURRING_INTERVAL;
 }
 
 async function migrateSettings(data) {
@@ -223,13 +254,17 @@ async function migrateSettings(data) {
     return data;
   }
 
-  const intervalMinutes = Number(data.intervalMinutes || DEFAULT_RECURRING_INTERVAL);
+  const intervalMinutes = Number(
+    data.intervalMinutes || DEFAULT_RECURRING_INTERVAL,
+  );
   const hourlyEnabled = data.hourlyEnabled !== false;
   const recurringEnabled = data.recurringEnabled !== false;
   await chrome.storage.sync.set({
     hourlyEnabled,
     recurringEnabled,
-    hourlyIntervalMinutes: Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL),
+    hourlyIntervalMinutes: Number(
+      data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL,
+    ),
     recurringIntervalMinutes: intervalMinutes,
     hourlyMessage: data.hourlyMessage || data.message || DEFAULT_MESSAGE,
     recurringMessage: data.recurringMessage || data.message || DEFAULT_MESSAGE,
@@ -242,7 +277,15 @@ async function migrateSettings(data) {
     migrationDone: true,
   });
 
-  await chrome.storage.sync.remove(["soundPreset", "customAudioUrl", "debugOverlayAlwaysOn", "mode", "interval", "customIntervalMinutes", "message"]);
+  await chrome.storage.sync.remove([
+    STORAGE_KEYS.SOUND_PRESET,
+    STORAGE_KEYS.CUSTOM_AUDIO_URL,
+    STORAGE_KEYS.DEBUG_OVERLAY_ALWAYS_ON,
+    STORAGE_KEYS.MODE,
+    STORAGE_KEYS.INTERVAL,
+    STORAGE_KEYS.CUSTOM_INTERVAL_MINUTES,
+    STORAGE_KEYS.MESSAGE,
+  ]);
 
   return { ...data, hourlyEnabled, recurringEnabled };
 }
@@ -250,7 +293,10 @@ async function migrateSettings(data) {
 async function ensureReminderAlarm(mode, intervalMinutes) {
   const alarmName = getReminderAlarmName(mode);
   await chrome.alarms.clear(alarmName);
-  await chrome.alarms.create(alarmName, getAlarmConfigForMode(mode, intervalMinutes));
+  await chrome.alarms.create(
+    alarmName,
+    getAlarmConfigForMode(mode, intervalMinutes),
+  );
 }
 
 async function scheduleDailyReset() {
@@ -262,28 +308,31 @@ async function scheduleDailyReset() {
   });
 }
 
-async function triggerReminder(mode, source = "alarm") {
+async function triggerReminder(mode, source = ALARM_SOURCES.ALARM) {
   const data = await readSettings();
   const now = Date.now();
   const todayKey = getTodayKey();
-  const enabledKey = mode === "hourly" ? "hourlyEnabled" : "recurringEnabled";
+  const enabledKey =
+    mode === MODES.HOURLY
+      ? STORAGE_KEYS.HOURLY_ENABLED
+      : STORAGE_KEYS.RECURRING_ENABLED;
 
   if (shouldIgnoreWakeTrigger(data, source)) {
     debugLog(`Reminder ignored (${source}) after sleep gap.`);
     return;
   }
 
-  if (data.disableTodayUntil === todayKey && mode === "recurring") {
+  if (data.disableTodayUntil === todayKey && mode === MODES.RECURRING) {
     log(`Reminder skipped (${source}) because disabled today.`);
     return;
   }
 
-  if (source === "startup") {
+  if (source === ALARM_SOURCES.STARTUP) {
     log(`Reminder reset (${source}) without firing.`);
     return;
   }
 
-  if (source === "wake" && !shouldTriggerOnWake(data, mode)) {
+  if (source === ALARM_SOURCES.WAKE && !shouldTriggerOnWake(data, mode)) {
     log(`Reminder reset (${source}) without firing.`);
     return;
   }
@@ -320,15 +369,15 @@ async function triggerReminder(mode, source = "alarm") {
   sendNotification("Echoverse", message);
   await playSound();
 
-  if (mode === "recurring") {
+  if (mode === MODES.RECURRING) {
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.id != null) {
           chrome.tabs.sendMessage(tab.id, {
-            type: "SHOW_OVERLAY",
+            type: MESSAGE_TYPES.SHOW_OVERLAY,
             payload: {
               id: String(now),
-              title: "Time to rest",
+              title: UI.REMINDER_TITLE,
               message,
             },
           });
@@ -337,7 +386,7 @@ async function triggerReminder(mode, source = "alarm") {
     });
   }
 
-  if (mode === "hourly") {
+  if (mode === MODES.HOURLY) {
     log("Hourly reminder fired without overlay.");
   }
   log(`Reminder fired from ${source}.`);
@@ -346,40 +395,42 @@ async function triggerReminder(mode, source = "alarm") {
 async function handleOverlayAction(action) {
   await patchStats(({ dailyStats, today, streak, todayKey }) => {
     const nextToday = { ...today };
-    if (action === "skip") {
+    if (action === ACTIONS.SKIP) {
       nextToday.skipped += 1;
     }
-    if (action === "snooze") {
+    if (action === ACTIONS.SNOOZE) {
       nextToday.snoozed += 1;
     }
-    if (action === "disable_today") {
+    if (action === ACTIONS.DISABLE_TODAY) {
       nextToday.disabledToday = true;
     }
     dailyStats[todayKey] = nextToday;
     return { dailyStats, streak };
   });
 
-  if (action === "snooze") {
+  if (action === ACTIONS.SNOOZE) {
     await chrome.alarms.clear(SNOOZE_ALARM_NAME);
-    await chrome.alarms.create(SNOOZE_ALARM_NAME, { delayInMinutes: 5 });
+    await chrome.alarms.create(SNOOZE_ALARM_NAME, {
+      delayInMinutes: DEFAULTS.SNOOZE_DELAY_MINUTES,
+    });
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.id != null) {
-          chrome.tabs.sendMessage(tab.id, { type: "HIDE_OVERLAY" });
+          chrome.tabs.sendMessage(tab.id, { type: MESSAGE_TYPES.HIDE_OVERLAY });
         }
       });
     });
     return;
   }
 
-  if (action === "disable_today") {
+  if (action === ACTIONS.DISABLE_TODAY) {
     const todayKey = getTodayKey();
     await chrome.storage.sync.set({ disableTodayUntil: todayKey });
     await chrome.alarms.clear(SNOOZE_ALARM_NAME);
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.id != null) {
-          chrome.tabs.sendMessage(tab.id, { type: "HIDE_OVERLAY" });
+          chrome.tabs.sendMessage(tab.id, { type: MESSAGE_TYPES.HIDE_OVERLAY });
         }
       });
     });
@@ -389,15 +440,18 @@ async function handleOverlayAction(action) {
   chrome.tabs.query({}, (tabs) => {
     tabs.forEach((tab) => {
       if (tab.id != null) {
-        chrome.tabs.sendMessage(tab.id, { type: "HIDE_OVERLAY" });
+        chrome.tabs.sendMessage(tab.id, { type: MESSAGE_TYPES.HIDE_OVERLAY });
       }
     });
   });
 }
 
-async function rehydrateScheduler(source = "startup") {
+async function rehydrateScheduler(source = SOURCE_TYPES.STARTUP) {
   const data = await migrateSettings(await readSettings());
-  const hourlyIntervalMinutes = Math.max(1, Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL));
+  const hourlyIntervalMinutes = Math.max(
+    1,
+    Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL),
+  );
   const recurringIntervalMinutes = normalizeInterval(data);
 
   await clearAlarm(SNOOZE_ALARM_NAME);
@@ -406,7 +460,8 @@ async function rehydrateScheduler(source = "startup") {
   await scheduleDailyReset();
 
   const nextDueAt = data.nextDueAt || 0;
-  const shouldResetFromNow = source === "startup" || source === "wake";
+  const shouldResetFromNow =
+    source === SOURCE_TYPES.STARTUP || source === SOURCE_TYPES.WAKE;
   if (shouldResetFromNow) {
     await chrome.storage.sync.set({ nextDueAt: getNextHourlyDueAt() });
     log(`Scheduler reset from ${source}.`);
@@ -417,11 +472,11 @@ async function rehydrateScheduler(source = "startup") {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === HOURLY_ALARM_NAME) {
-    triggerReminder("hourly", "alarm");
+    triggerReminder(MODE_TYPES.HOURLY, ALARM_TYPES.ALARM);
   } else if (alarm.name === RECURRING_ALARM_NAME) {
-    triggerReminder("recurring", "alarm");
+    triggerReminder(MODE_TYPES.RECURRING, ALARM_TYPES.ALARM);
   } else if (alarm.name === SNOOZE_ALARM_NAME) {
-    triggerReminder("recurring", "snooze");
+    triggerReminder(MODE_TYPES.RECURRING, ALARM_TYPES.SNOOZE);
   } else if (alarm.name === DAILY_RESET_ALARM_NAME) {
     chrome.storage.sync.set({ disableTodayUntil: null });
     scheduleDailyReset();
@@ -429,7 +484,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "OVERLAY_ACTION") {
+  if (message?.type === MESSAGE_TYPES.OVERLAY_ACTION) {
     (async () => {
       await handleOverlayAction(message.action);
       sendResponse({ ok: true });
@@ -437,30 +492,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message.action === "start-timer") {
+  if (message.action === ACTIONS.START_TIMER) {
     (async () => {
       const updates = {};
       const enabledModes = [];
 
       if (message.hourlyEnabled) {
-        const hourlyIntervalMinutes = Math.max(1, Number(message.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL));
+        const hourlyIntervalMinutes = Math.max(
+          1,
+          Number(message.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL),
+        );
         updates.hourlyEnabled = true;
         updates.hourlyIntervalMinutes = hourlyIntervalMinutes;
         updates.hourlyMessage = message.hourlyMessage || DEFAULT_MESSAGE;
-        await ensureReminderAlarm("hourly", hourlyIntervalMinutes);
-        enabledModes.push("theo giờ");
+        await ensureReminderAlarm(MODE_TYPES.HOURLY, hourlyIntervalMinutes);
+        enabledModes.push(UI.HOURLY_MODE_LABEL);
       } else {
         updates.hourlyEnabled = false;
         await chrome.alarms.clear(HOURLY_ALARM_NAME);
       }
 
       if (message.recurringEnabled) {
-        const recurringIntervalMinutes = Math.max(1, Number(message.recurringIntervalMinutes || DEFAULT_RECURRING_INTERVAL));
+        const recurringIntervalMinutes = Math.max(
+          1,
+          Number(
+            message.recurringIntervalMinutes || DEFAULT_RECURRING_INTERVAL,
+          ),
+        );
         updates.recurringEnabled = true;
         updates.recurringIntervalMinutes = recurringIntervalMinutes;
         updates.recurringMessage = message.recurringMessage || DEFAULT_MESSAGE;
-        await ensureReminderAlarm("recurring", recurringIntervalMinutes);
-        enabledModes.push("lặp lại");
+        await ensureReminderAlarm(MODES.RECURRING, recurringIntervalMinutes);
+        enabledModes.push(UI.RECURRING_MODE_LABEL);
       } else {
         updates.recurringEnabled = false;
         await chrome.alarms.clear(RECURRING_ALARM_NAME);
@@ -469,12 +532,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       updates.lastTriggeredAt = null;
       await chrome.storage.sync.set(updates);
       await scheduleDailyReset();
-      sendResponse({ status: `Echoverse đã bật: ${enabledModes.join(" + ")}.` });
+      sendResponse({
+        status: `${UI.RECURRING_ENABLED_STATUS_PREFIX}${enabledModes.join(" + ")}${UI.RECURRING_ENABLED_STATUS_SUFFIX}`,
+      });
     })();
     return true;
   }
 
-  if (message.action === "toggle-sound") {
+  if (message.action === ACTIONS.TOGGLE_SOUND) {
     chrome.storage.sync.get("soundEnabled", (data) => {
       const soundEnabled = data.soundEnabled !== false;
       chrome.storage.sync.set({ soundEnabled: !soundEnabled }, () => {
@@ -493,23 +558,23 @@ chrome.runtime.onStartup.addListener(async () => {
     return;
   }
   startupHandling = true;
-  await rehydrateScheduler("startup");
+  await rehydrateScheduler(SOURCE_TYPES.STARTUP);
   startupHandling = false;
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await rehydrateScheduler("startup");
+  await rehydrateScheduler(SOURCE_TYPES.STARTUP);
 });
 
 chrome.idle.onStateChanged.addListener(async (state) => {
   if (state === "active") {
     log("Computer has become active.");
-    await rehydrateScheduler("wake");
+    await rehydrateScheduler(SOURCE_TYPES.WAKE);
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "GET_STATS") {
+  if (message?.type === MESSAGE_TYPES.GET_STATS) {
     (async () => {
       const data = await readSettings();
       sendResponse({
@@ -523,7 +588,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "GET_SETTINGS") {
+  if (message?.type === MESSAGE_TYPES.GET_SETTINGS) {
     (async () => {
       const data = await readSettings();
       sendResponse({ ok: true, data });
@@ -535,7 +600,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "PLAY_SOUND") {
+  if (message?.type === MESSAGE_TYPES.PLAY_SOUND) {
     (async () => {
       await setupOffscreenDocument("src/offscreen/offscreen.html");
       chrome.runtime.sendMessage(message);
@@ -548,10 +613,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "SET_SETTINGS") {
+  if (message?.type === MESSAGE_TYPES.SET_SETTINGS) {
     (async () => {
       await chrome.storage.sync.set(message.data || {});
-      await rehydrateScheduler("startup");
+      await rehydrateScheduler(SOURCE_TYPES.STARTUP);
       sendResponse({ ok: true });
     })();
     return true;
@@ -561,7 +626,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "TRIGGER_NOW") {
+  if (message?.type === MESSAGE_TYPES.TRIGGER_NOW) {
     (async () => {
       await triggerReminder("manual");
       sendResponse({ ok: true });
@@ -573,11 +638,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "HIDE_ALL_OVERLAY") {
+  if (message?.type === MESSAGE_TYPES.HIDE_ALL_OVERLAY) {
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.id != null) {
-          chrome.tabs.sendMessage(tab.id, { type: "HIDE_OVERLAY" });
+          chrome.tabs.sendMessage(tab.id, { type: MESSAGE_TYPES.HIDE_OVERLAY });
         }
       });
     });
@@ -589,7 +654,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "NOOP") {
+  if (message?.type === MESSAGE_TYPES.NOOP) {
     sendResponse({ ok: true });
     return false;
   }
@@ -598,7 +663,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "GET_DAILY_STATS") {
+  if (message?.type === MESSAGE_TYPES.GET_DAILY_STATS) {
     (async () => {
       const data = await readSettings();
       sendResponse({ ok: true, data: data.dailyStats || {} });
@@ -610,22 +675,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "GET_STREAK") {
-    (async () => {
-      const data = await readSettings();
-      sendResponse({
-        ok: true,
-        data: data.streak || { current: 0, best: 0, lastActiveDate: null },
-      });
-    })();
-    return true;
-  }
-
-  return false;
-});
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "PING_BACKGROUND") {
+  if (message?.type === MESSAGE_TYPES.PING_BACKGROUND) {
     sendResponse({ ok: true });
     return false;
   }

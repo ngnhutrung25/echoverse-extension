@@ -7,10 +7,11 @@
 - **Hourly**: nhắc mỗi giờ với message tùy chỉnh.
 - **Recurring**: nhắc theo chu kỳ 15, 30, 45, hoặc 60 phút; có hỗ trợ giá trị custom.
 - **Overlay toàn màn hình**: hiện lớp phủ với blur nền, nút **Skip**, **Snooze 5m**, và **Disable for today**.
-- **Âm thanh**: bật/tắt âm thanh; chọn preset hoặc nhập `customAudioUrl`.
+- **Âm thanh**: bật/tắt âm thanh.
 - **Stats**: xem số lần nhắc hôm nay và streak trong popup.
 - **An toàn khi startup / wake**: browser khởi động hoặc máy thức dậy thì timer được reset, không bắn nhắc cũ.
 - **Manifest V3**: dùng `chrome.alarms`, `chrome.runtime.onStartup`, `chrome.idle`, `offscreen`, và content script overlay.
+- **Message pool**: chọn ngẫu nhiên từ danh sách message đã định nghĩa.
 
 ## Cấu hình hiện tại
 
@@ -41,19 +42,19 @@ Extension cần các quyền sau:
 
 ## Cấu trúc file
 
-- **`manifest.json`**: cấu hình extension.
-- **`popup.html`** / **`popup.js`**: UI và logic popup.
-- **`background.js`**: schedule, notification, stats, overlay message.
-- **`content/overlay.js`** / **`content/overlay.css`**: overlay toàn màn hình.
-- **`offscreen.html`** / **`offscreen.js`**: phát âm thanh notification.
-- **`icons/`**: icon 16 / 48 / 128 / 512.
+- **`manifest.json`**: cấu hình extension (Manifest V3).
+- **`src/popup/popup.html`** / **`src/popup/popup.js`**: UI và logic popup.
+- **`src/background.js`**: schedule, notification, stats, overlay message (service worker).
+- **`src/constants.js`**: định nghĩa constants, defaults, và configuration.
+- **`src/content/overlay.js`** / **`src/content/overlay.css`**: overlay toàn màn hình.
+- **`src/offscreen/offscreen.html`** / **`src/offscreen.js`**: phát âm thanh notification.
+- **`icons/`**: icon 16 / 48 / 128 / 512 pixels.
 - **`assets/`**: ảnh giao diện và tài nguyên âm thanh.
 
 ## Ghi chú
 
-- `soundPreset` hiện hỗ trợ `default`, `rain`, `bell`, `wind`.
-- `messagePool` là nguồn text nhắc ngẫu nhiên.
-- `dailyStats` và `streak` được lưu trong `chrome.storage.sync`.
+- **Message pool mặc định**: `"Drink water"`, `"Look away from screen"`, `"Breathe 10 seconds"`.
+- **Storage**: `dailyStats` được lưu trong `chrome.storage.sync`.
 
 ## License
 

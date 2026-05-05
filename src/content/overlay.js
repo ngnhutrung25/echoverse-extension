@@ -1,5 +1,21 @@
+import { ACTIONS, MESSAGE_TYPES } from "../constants";
+
 let currentOverlayId = null;
-let fontInjected = false;
+
+const UI = {
+  OVERLAY_ID: "echoverse-overlay",
+  // content
+  OVERLAY_KICKER: "echoverse",
+  OVERLAY_TITLE: "Time to rest",
+  OVERLAY_MESSAGE: "Stand up. Stretch. Drink water.",
+  // button
+  OVERLAY_SKIP: "Skip",
+  OVERLAY_SNOOZE: "Snooze 5m",
+  OVERLAY_DISABLE_TODAY: "Disable for today",
+  // debug
+  DEBUG_OVERLAY_TITLE: "Debug overlay",
+  DEBUG_OVERLAY_MESSAGE: "Overlay always on for UI testing.",
+};
 
 const LANDSCAPE_IMAGES = [
   "https://i.natgeofe.com/n/d35b89a0-cd33-4648-bf2d-459ad60b66ae/atedmunds.jpg",
@@ -56,39 +72,13 @@ function getRandomLandscapeImage() {
   return LANDSCAPE_IMAGES[Math.floor(Math.random() * LANDSCAPE_IMAGES.length)];
 }
 
-function injectInterFont() {
-  if (fontInjected || document.getElementById("echoverse-inter-font")) {
-    return;
-  }
-
-  const preconnectGoogleapis = document.createElement("link");
-  preconnectGoogleapis.rel = "preconnect";
-  preconnectGoogleapis.href = "https://fonts.googleapis.com";
-
-  const preconnectGstatic = document.createElement("link");
-  preconnectGstatic.rel = "preconnect";
-  preconnectGstatic.href = "https://fonts.gstatic.com";
-  preconnectGstatic.crossOrigin = "";
-
-  const fontLink = document.createElement("link");
-  fontLink.id = "echoverse-inter-font";
-  fontLink.rel = "stylesheet";
-  fontLink.href =
-    "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap";
-
-  document.head.appendChild(preconnectGoogleapis);
-  document.head.appendChild(preconnectGstatic);
-  document.head.appendChild(fontLink);
-  fontInjected = true;
-}
-
 function setPageScrollLocked(locked) {
   document.documentElement.style.overflow = locked ? "hidden" : "";
   document.body.style.overflow = locked ? "hidden" : "";
 }
 
 function removeOverlay() {
-  const existing = document.getElementById("echoverse-overlay");
+  const existing = document.getElementById(UI.OVERLAY_ID);
   if (existing) {
     existing.remove();
   }
@@ -96,16 +86,8 @@ function removeOverlay() {
   currentOverlayId = null;
 }
 
-function createButton(label, action) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = label;
-  button.dataset.action = action;
-  return button;
-}
-
 function showOverlay(payload = {}) {
-  if (document.getElementById("echoverse-overlay")) {
+  if (document.getElementById(UI.OVERLAY_ID)) {
     return;
   }
 
@@ -116,7 +98,7 @@ function showOverlay(payload = {}) {
   setPageScrollLocked(true);
 
   const overlay = document.createElement("div");
-  overlay.id = "echoverse-overlay";
+  overlay.id = UI.OVERLAY_ID;
   overlay.innerHTML = `
     <div class="echoverse-overlay-backdrop"></div>
     <div class="echoverse-overlay-card">
@@ -124,13 +106,13 @@ function showOverlay(payload = {}) {
         <img class="echoverse-overlay-image" alt="Phong cảnh" />
       </div>
       <div class="echoverse-overlay-copy">
-        <p class="echoverse-kicker">echoverse</p>
-        <h1>${payload.title || "Time to rest"}</h1>
-        <p class="echoverse-message">${payload.message || "Stand up. Stretch. Drink water."}</p>
+        <p class="echoverse-kicker">${UI.OVERLAY_KICKER}</p>
+        <h1>${payload.title || UI.OVERLAY_TITLE}</h1>
+        <p class="echoverse-message">${payload.message || UI.OVERLAY_MESSAGE}</p>
         <div class="echoverse-actions">
-          <button type="button" data-action="skip">Skip</button>
-          <button type="button" data-action="snooze">Snooze 5m</button>
-          <button type="button" data-action="disable_today">Disable for today</button>
+          <button type="button" data-action="skip">${UI.OVERLAY_SKIP}</button>
+          <button type="button" data-action="snooze">${UI.OVERLAY_SNOOZE}</button>
+          <button type="button" data-action="disable_today">${UI.OVERLAY_DISABLE_TODAY}</button>
         </div>
       </div>
     </div>
@@ -148,12 +130,12 @@ function showOverlay(payload = {}) {
     }
 
     chrome.runtime.sendMessage({
-      type: "OVERLAY_ACTION",
+      type: MESSAGE_TYPES.OVERLAY_ACTION,
       action,
       overlayId: currentOverlayId,
     });
 
-    if (action === "skip") {
+    if (action === ACTIONS.SKIP) {
       removeOverlay();
     }
   });
@@ -177,11 +159,11 @@ function showOverlay(payload = {}) {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === "SHOW_OVERLAY") {
+  if (message?.type === MESSAGE_TYPES.SHOW_OVERLAY) {
     showOverlay(message.payload || {});
   }
 
-  if (message?.type === "HIDE_OVERLAY") {
+  if (message?.type === MESSAGE_TYPES.HIDE_OVERLAY) {
     removeOverlay();
   }
 });
@@ -189,7 +171,7 @@ chrome.runtime.onMessage.addListener((message) => {
 // ONLY FOR DEBUG
 setTimeout(() => {
   showOverlay({
-    title: "Debug overlay",
-    message: "Overlay always on for UI testing.",
+    title: UI.DEBUG_OVERLAY_TITLE,
+    message: UI.DEBUG_OVERLAY_MESSAGE,
   });
 }, 1500);
