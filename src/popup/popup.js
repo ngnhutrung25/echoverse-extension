@@ -8,25 +8,31 @@ document.addEventListener("DOMContentLoaded", () => {
     statusBox: document.getElementById("status-box"),
     statusDiv: document.getElementById("status"),
     todayCount: document.getElementById("today-count"),
-    streakCount: document.getElementById("streak-count"),
-    hourlyMessageInput: document.getElementById("hourly-message"),
-    recurringIntervalInput: document.getElementById("recurring-interval"),
-    recurringMessageInput: document.getElementById("recurring-message"),
+    recurringIntervalValue: document.getElementById("recurring-interval"),
+    decrementButton: document.getElementById("decrement-button"),
+    incrementButton: document.getElementById("increment-button"),
     soundToggleButton: document.getElementById("sound-toggle"),
     soundToggleIcon: document.getElementById("sound-toggle-icon"),
   };
 
   let statusTimer = null;
 
-  function updateSoundToggleIcon(soundEnabled) {
-    if (soundEnabled) {
-      elements.soundToggleIcon.src = "/assets/noti.png";
-      elements.soundToggleIcon.alt = "Sound On";
-    } else {
-      elements.soundToggleIcon.src = "/assets/mute.png";
-      elements.soundToggleIcon.alt = "Sound Off";
-    }
+  function setSoundIconState(soundEnabled) {
+    elements.soundToggleButton.querySelector("#sound-toggle-bell")?.classList.toggle("hidden", !soundEnabled);
+    elements.soundToggleButton
+      .querySelector("#sound-toggle-bell-slash")
+      ?.classList.toggle("hidden", soundEnabled);
+    elements.soundToggleButton.dataset.enabled = String(soundEnabled);
   }
+
+  function getSoundIconState() {
+    return elements.soundToggleButton.dataset.enabled !== "false";
+  }
+
+  function updateSoundToggleIcon(soundEnabled) {
+    setSoundIconState(soundEnabled);
+  }
+
 
   function updateStatus(message, isError = false) {
     if (statusTimer) {
@@ -34,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     elements.statusBox.classList.remove("hidden");
-    elements.statusDiv.classList.toggle("text-blue-600", !isError);
+    elements.statusDiv.classList.toggle("text-black", !isError);
     elements.statusDiv.classList.toggle("text-red-500", isError);
     elements.statusDiv.textContent = message;
 
@@ -64,34 +70,35 @@ document.addEventListener("DOMContentLoaded", () => {
     syncModeUI();
   }
 
-  function loadSettings() {
+  async function loadSettings() {
     clearStatus();
     chrome.storage.sync.get(
       [
         "hourlyEnabled",
-        "hourlyMessage",
         "hourlyIntervalMinutes",
         "recurringEnabled",
         "intervalMinutes",
+        "customIntervalMinutes",
         "message",
         "dailyStats",
-        "streak",
         "soundEnabled",
       ],
       (data) => {
         updateSoundToggleIcon(data.soundEnabled !== false);
         setMode(data.hourlyEnabled !== false, data.recurringEnabled !== false);
-        elements.hourlyMessageInput.value = data.hourlyMessage || data.message || "";
-        elements.recurringIntervalInput.value = data.intervalMinutes || 30;
-        elements.recurringMessageInput.value = data.message || "";
+        elements.recurringIntervalValue.textContent = String(data.customIntervalMinutes || data.intervalMinutes || 30);
 
         const todayKey = new Date().toISOString().slice(0, 10);
         const todayStats = (data.dailyStats && data.dailyStats[todayKey]) || { shown: 0 };
-        const streak = data.streak || { current: 0 };
         elements.todayCount.textContent = String(todayStats.shown || 0);
-        elements.streakCount.textContent = String(streak.current || 0);
       }
     );
+  }
+
+  function stepInterval(delta) {
+    const current = parseInt(elements.recurringIntervalValue.textContent, 10) || 30;
+    const next = Math.max(5, current + delta);
+    elements.recurringIntervalValue.textContent = String(Math.round(next / 5) * 5);
   }
 
   function handleStartButtonClick() {
@@ -99,9 +106,9 @@ document.addEventListener("DOMContentLoaded", () => {
       action: "start-timer",
       hourlyEnabled: elements.hourlyToggle.checked,
       recurringEnabled: elements.recurringToggle.checked,
-      hourlyMessage: elements.hourlyMessageInput.value.trim(),
-      recurringIntervalMinutes: parseInt(elements.recurringIntervalInput.value, 10),
-      recurringMessage: elements.recurringMessageInput.value.trim(),
+      recurringIntervalMinutes: parseInt(elements.recurringIntervalValue.textContent, 10),
+      customIntervalMinutes: parseInt(elements.recurringIntervalValue.textContent, 10),
+      message: "",
     };
 
     chrome.runtime.sendMessage(payload, (response) => {
@@ -110,9 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
         chrome.storage.sync.set({
           hourlyEnabled: payload.hourlyEnabled,
           recurringEnabled: payload.recurringEnabled,
-          hourlyMessage: payload.hourlyMessage,
           recurringIntervalMinutes: payload.recurringIntervalMinutes || 30,
-          recurringMessage: payload.recurringMessage,
+          customIntervalMinutes: payload.customIntervalMinutes || 30,
+          message: "",
         });
       } else if (response && response.error) {
         updateStatus(response.error, true);
@@ -120,14 +127,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function handleSoundToggleClick() {
+  async function handleSoundToggleClick() {
+    elements.soundToggleButton.disabled = true;
+    setSoundIconState(!getSoundIconState());
     chrome.runtime.sendMessage({ action: "toggle-sound" }, (response) => {
-      updateSoundToggleIcon(response.soundEnabled);
+      updateSoundToggleIcon(response?.soundEnabled !== false);
+      elements.soundToggleButton.disabled = false;
     });
   }
 
   elements.hourlyToggle.addEventListener("change", syncModeUI);
   elements.recurringToggle.addEventListener("change", syncModeUI);
+  elements.decrementButton.addEventListener("click", () => stepInterval(-5));
+  elements.incrementButton.addEventListener("click", () => stepInterval(5));
   elements.startButton.addEventListener("click", handleStartButtonClick);
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
 

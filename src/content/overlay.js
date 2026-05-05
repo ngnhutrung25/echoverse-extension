@@ -96,20 +96,6 @@ function removeOverlay() {
   currentOverlayId = null;
 }
 
-function setPageScrollLocked(locked) {
-  document.documentElement.style.overflow = locked ? "hidden" : "";
-  document.body.style.overflow = locked ? "hidden" : "";
-}
-
-function removeOverlay() {
-  const existing = document.getElementById("echoverse-overlay");
-  if (existing) {
-    existing.remove();
-  }
-  setPageScrollLocked(false);
-  currentOverlayId = null;
-}
-
 function createButton(label, action) {
   const button = document.createElement("button");
   button.type = "button";
@@ -138,7 +124,7 @@ function showOverlay(payload = {}) {
         <img class="echoverse-overlay-image" alt="Phong cảnh" />
       </div>
       <div class="echoverse-overlay-copy">
-        <p class="echoverse-kicker"><span class="echoverse-brand-echo">echo</span><span class="echoverse-brand-verse">verse</span></p>
+        <p class="echoverse-kicker">echoverse</p>
         <h1>${payload.title || "Time to rest"}</h1>
         <p class="echoverse-message">${payload.message || "Stand up. Stretch. Drink water."}</p>
         <div class="echoverse-actions">
@@ -201,9 +187,9 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 // ONLY FOR DEBUG
-// setTimeout(() => {
-//   showOverlay({
-//     title: "Debug overlay",
-//     message: "Overlay always on for UI testing.",
-//   });
-// }, 1500);
+setTimeout(() => {
+  showOverlay({
+    title: "Debug overlay",
+    message: "Overlay always on for UI testing.",
+  });
+}, 1500);

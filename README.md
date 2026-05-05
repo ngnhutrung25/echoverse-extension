@@ -12,13 +12,6 @@
 - **An toàn khi startup / wake**: browser khởi động hoặc máy thức dậy thì timer được reset, không bắn nhắc cũ.
 - **Manifest V3**: dùng `chrome.alarms`, `chrome.runtime.onStartup`, `chrome.idle`, `offscreen`, và content script overlay.
 
-<table>
-  <tr>
-    <td style="border: none; vertical-align: top;"><img src="assets/intro0.png" alt="Ảnh 1" style="width: 350px; object-fit: contain;"></td>
-    <td style="border: none; vertical-align: top;"><img src="assets/intro1.png" alt="Ảnh 2" style="width: 350px; object-fit: contain;"></td>
-  </tr>
-</table>
-
 ## Cấu hình hiện tại
 
 - **Tên app**: Echoverse

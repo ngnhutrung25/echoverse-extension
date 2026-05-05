@@ -12,8 +12,8 @@ const DEFAULT_RECURRING_INTERVAL = 30;
 const DEFAULT_MESSAGE = "Drink water";
 const DEFAULT_MESSAGE_POOL = ["Drink water", "Look away from screen", "Breathe 10 seconds"];
 const TIMER_DEBOUNCE_MS = 90 * 1000;
-const MAX_TIMER_GAP_MS = 24 * 60 * 60 * 1000;
-const DEBOUNCE_MS = 90 * 1000;
+const MAX_TIMER_GAP_MS = 10 * 60 * 1000;
+const DEBUG_ENABLED = false;
 
 let offscreenCreating;
 let startupHandling = false;
@@ -46,7 +46,7 @@ async function playSound() {
   const data = await chrome.storage.sync.get("soundEnabled");
   const soundEnabled = data.soundEnabled !== false;
   if (soundEnabled) {
-    await setupOffscreenDocument("offscreen.html");
+    await setupOffscreenDocument("src/offscreen/offscreen.html");
     chrome.runtime.sendMessage({
       target: "offscreen",
       type: "play-sound",
@@ -77,8 +77,47 @@ function sendNotification(title, message) {
 }
 
 function clearAlarm(name) {
-  chrome.alarms.clear(name);
+  return chrome.alarms.clear(name);
 }
+
+function debugLog(message) {
+  if (DEBUG_ENABLED) {
+    log(message);
+  }
+}
+
+function getAlarmNameForMode(mode) {
+  return mode === "hourly" ? HOURLY_ALARM_NAME : RECURRING_ALARM_NAME;
+}
+
+function getAlarmConfigForMode(mode, intervalMinutes) {
+  return {
+    delayInMinutes: intervalMinutes,
+    periodInMinutes: intervalMinutes,
+  };
+}
+
+function getNextHourlyDueAt() {
+  return Date.now() + DEFAULT_HOURLY_INTERVAL * 60 * 1000;
+}
+
+function shouldIgnoreWakeTrigger(data, source) {
+  if (source !== "wake") {
+    return false;
+  }
+
+  const nextDueAt = Number(data.nextDueAt || 0);
+  return nextDueAt > 0 && Date.now() - nextDueAt > MAX_TIMER_GAP_MS;
+}
+
+function shouldTriggerOnWake(data, mode) {
+  if (mode === "hourly") {
+    return true;
+  }
+
+  return data.disableTodayUntil !== getTodayKey();
+}
+
 
 function getTodayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -89,7 +128,7 @@ function getNextDueAt(intervalMinutes) {
 }
 
 function getReminderAlarmName(mode) {
-  return mode === "hourly" ? HOURLY_ALARM_NAME : RECURRING_ALARM_NAME;
+  return getAlarmNameForMode(mode);
 }
 
 function getReminderIntervalMinutes(data, mode) {
@@ -173,10 +212,10 @@ function normalizeInterval(data) {
   const value = Number(
     data.customIntervalMinutes || data.intervalMinutes || data.interval || 30,
   );
-  if ([15, 30, 45, 60].includes(value)) {
-    return value;
+  if (Number.isFinite(value)) {
+    return Math.max(5, Math.round(value / 5) * 5);
   }
-  return Math.max(1, Number.isFinite(value) ? value : 30);
+  return 30;
 }
 
 async function migrateSettings(data) {
@@ -211,10 +250,7 @@ async function migrateSettings(data) {
 async function ensureReminderAlarm(mode, intervalMinutes) {
   const alarmName = getReminderAlarmName(mode);
   await chrome.alarms.clear(alarmName);
-  await chrome.alarms.create(alarmName, {
-    delayInMinutes: intervalMinutes,
-    periodInMinutes: intervalMinutes,
-  });
+  await chrome.alarms.create(alarmName, getAlarmConfigForMode(mode, intervalMinutes));
 }
 
 async function scheduleDailyReset() {
@@ -232,12 +268,22 @@ async function triggerReminder(mode, source = "alarm") {
   const todayKey = getTodayKey();
   const enabledKey = mode === "hourly" ? "hourlyEnabled" : "recurringEnabled";
 
+  if (shouldIgnoreWakeTrigger(data, source)) {
+    debugLog(`Reminder ignored (${source}) after sleep gap.`);
+    return;
+  }
+
   if (data.disableTodayUntil === todayKey && mode === "recurring") {
     log(`Reminder skipped (${source}) because disabled today.`);
     return;
   }
 
-  if (source === "startup" || source === "wake") {
+  if (source === "startup") {
+    log(`Reminder reset (${source}) without firing.`);
+    return;
+  }
+
+  if (source === "wake" && !shouldTriggerOnWake(data, mode)) {
     log(`Reminder reset (${source}) without firing.`);
     return;
   }
@@ -329,7 +375,7 @@ async function handleOverlayAction(action) {
   if (action === "disable_today") {
     const todayKey = getTodayKey();
     await chrome.storage.sync.set({ disableTodayUntil: todayKey });
-    await chrome.alarms.clear(ALARM_NAME);
+    await chrome.alarms.clear(SNOOZE_ALARM_NAME);
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.id != null) {
@@ -351,16 +397,18 @@ async function handleOverlayAction(action) {
 
 async function rehydrateScheduler(source = "startup") {
   const data = await migrateSettings(await readSettings());
-  const intervalMinutes = normalizeInterval(data);
+  const hourlyIntervalMinutes = Math.max(1, Number(data.hourlyIntervalMinutes || DEFAULT_HOURLY_INTERVAL));
+  const recurringIntervalMinutes = normalizeInterval(data);
 
   await clearAlarm(SNOOZE_ALARM_NAME);
-  await ensureReminderAlarm(intervalMinutes);
+  await ensureReminderAlarm("hourly", hourlyIntervalMinutes);
+  await ensureReminderAlarm("recurring", recurringIntervalMinutes);
   await scheduleDailyReset();
 
   const nextDueAt = data.nextDueAt || 0;
   const shouldResetFromNow = source === "startup" || source === "wake";
   if (shouldResetFromNow) {
-    await chrome.storage.sync.set({ nextDueAt: getNextDueAt(intervalMinutes) });
+    await chrome.storage.sync.set({ nextDueAt: getNextHourlyDueAt() });
     log(`Scheduler reset from ${source}.`);
   } else if (nextDueAt && nextDueAt > Date.now()) {
     log("Scheduler restored from storage.");
@@ -489,7 +537,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "PLAY_SOUND") {
     (async () => {
-      await setupOffscreenDocument("offscreen.html");
+      await setupOffscreenDocument("src/offscreen/offscreen.html");
       chrome.runtime.sendMessage(message);
       sendResponse({ ok: true });
     })();

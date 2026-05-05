@@ -15,8 +15,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/overlay.js"],
-      "css": ["content/overlay.css"],
+      "js": ["src/content/overlay.js"],
+      "css": ["src/content/overlay.css"],
       "run_at": "document_idle"
     }
   ],
@@ -27,10 +27,10 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

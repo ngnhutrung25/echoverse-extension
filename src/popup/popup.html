@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Echoverse</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+
+  <body class="popup-body">
+    <div class="popup-shell">
+      <div class="popup-header">
+        <div>
+          <p class="popup-kicker">Echoverse</p>
+          <h2 class="popup-title">Chuông báo</h2>
+        </div>
+        <button
+          id="sound-toggle"
+          class="icon-button"
+          type="button"
+          aria-label="Toggle sound"
+        >
+          <svg
+            id="sound-toggle-bell"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              fill="#000000"
+              d="M10,20h4a2,2,0,0,1-4,0Zm10.242-4.225L19.135,13.93a4.5,4.5,0,0,1-.64-2.313V8.99a6.5,6.5,0,0,0-12.99,0v2.627a4.5,4.5,0,0,1-.64,2.313L3.758,15.775A1.8,1.8,0,0,0,5.3,18.5H18.7a1.8,1.8,0,0,0,1.545-2.725Z"
+            />
+          </svg>
+          <svg
+            id="sound-toggle-bell-slash"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            class="hidden"
+            aria-hidden="true"
+          >
+            <path
+              fill="#000000"
+              d="M10,20h4a2,2,0,0,1-4,0ZM4.52,15.98a.5.5,0,0,0,.354-.146l11.2-11.2a.5.5,0,0,0-.045-.747A6.512,6.512,0,0,0,5.5,8.99v2.63a4.492,4.492,0,0,1-.639,2.315l-.77,1.29a.5.5,0,0,0,.429.755ZM20.707,3.293a1,1,0,0,0-1.414,0l-16,16a1,1,0,1,0,1.414,1.414L6.914,18.5H18.7a1.8,1.8,0,0,0,1.539-2.727l-1.1-1.84A4.491,4.491,0,0,1,18.5,11.62V8.99a6.446,6.446,0,0,0-.265-1.811l2.472-2.472A1,1,0,0,0,20.707,3.293Z"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="stack">
+        <section class="panel">
+          <label class="toggle-row">
+            <input id="hourly-toggle" type="checkbox" class="sr-only peer" />
+            <div class="toggle-track"></div>
+            <span class="label">Theo giờ</span>
+          </label>
+          <div id="hourly-settings" class="hidden"></div>
+        </section>
+
+        <section class="panel">
+          <label class="toggle-row">
+            <input
+              id="recurring-toggle"
+              type="checkbox"
+              class="sr-only peer"
+              checked
+            />
+            <div class="toggle-track"></div>
+            <span class="label">Lặp lại</span>
+          </label>
+
+          <div id="recurring-settings" class="interval-row hidden">
+            <label for="recurring-interval" class="label" style="margin-left: 0"
+              >Số phút</label
+            >
+            <div class="interval-controls">
+              <button type="button" id="decrement-button" class="step-button">
+                <svg
+                  class="step-icon"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 12h14"
+                  />
+                </svg>
+              </button>
+              <span id="recurring-interval" class="interval-value">30</span>
+              <button type="button" id="increment-button" class="step-button">
+                <svg
+                  class="step-icon"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 12h14m-7 7V5"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div style="margin-top: 20px">
+        <button id="start-timer" type="button" class="primary-button">
+          Bắt đầu
+        </button>
+      </div>
+
+      <div class="panel" style="margin-top: 16px">
+        <div class="stats-row">
+          <div>
+            <p class="today-label">Hôm nay</p>
+            <p id="today-count" class="today-count">0</p>
+          </div>
+          <div class="accent-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="status-box" class="status-box hidden">
+      <p id="status" class="status-text"></p>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
