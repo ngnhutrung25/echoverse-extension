@@ -114,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
         STORAGE_KEYS.HOURLY_INTERVAL_MINUTES,
         STORAGE_KEYS.RECURRING_ENABLED,
         STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
-        STORAGE_KEYS.MESSAGE,
         STORAGE_KEYS.DAILY_STATS,
         STORAGE_KEYS.SOUND_ENABLED,
       ]);
@@ -147,7 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
       hourlyEnabled: elements.hourlyToggle.checked,
       recurringEnabled: elements.recurringToggle.checked,
       recurringIntervalMinutes: intervalValue,
-      message: "",
     };
 
     try {
@@ -159,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
           hourlyEnabled: payload.hourlyEnabled,
           recurringEnabled: payload.recurringEnabled,
           recurringIntervalMinutes: payload.recurringIntervalMinutes,
-          message: "",
         });
       } else if (response && response.error) {
         updateStatus(response.error, true);

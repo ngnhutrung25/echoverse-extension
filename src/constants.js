@@ -31,6 +31,9 @@ export const MESSAGE_TYPES = {
   PLAY_SOUND_OFFSCREEN: "PLAY_SOUND_OFFSCREEN",
   START_TIMER: "START_TIMER",
   TOGGLE_SOUND: "TOGGLE_SOUND",
+};
+
+export const ACTIONS = {
   SKIP: "SKIP",
   SNOOZE: "SNOOZE",
   DISABLE_TODAY: "DISABLE_TODAY",
@@ -44,19 +47,9 @@ export const SOURCE_TYPES = {
 
 export const STORAGE_KEYS = {
   SOUND_ENABLED: "soundEnabled",
-  MODE: "mode",
-  MESSAGE: "message",
-  MESSAGE_POOL: "messagePool",
-  LAST_TRIGGERED_AT: "lastTriggeredAt",
-  NEXT_DUE_AT: "nextDueAt",
-  DISABLE_TODAY_UNTIL: "disableTodayUntil",
-  MIGRATION_DONE: "migrationDone",
-  HOURLY_MESSAGE: "hourlyMessage",
-  RECURRING_MESSAGE: "recurringMessage",
   DAILY_STATS: "dailyStats",
   HOURLY_ENABLED: "hourlyEnabled",
   RECURRING_ENABLED: "recurringEnabled",
   HOURLY_INTERVAL_MINUTES: "hourlyIntervalMinutes",
   RECURRING_INTERVAL_MINUTES: "recurringIntervalMinutes",
-  VOLUME: "volume",
 };
