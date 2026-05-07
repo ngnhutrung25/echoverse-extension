@@ -1,6 +1,3 @@
-import { log } from "../../helpers.js";
-
-// Import StorageUtils for storage operations
 import { StorageUtils } from "../storage-utils.js";
 
 /**
@@ -11,39 +8,35 @@ import { StorageUtils } from "../storage-utils.js";
  * @property {boolean} disabledToday - Whether disabled for today
  */
 
-export class StatsModel {
-  constructor() {
-    this.state = {
-      dailyStats: {},
-    };
+export function createStatsModel() {
+  const state = {
+    dailyStats: {},
+  };
 
-    this.keys = {
-      DAILY_STATS: "dailyStats",
-    };
+  const keys = {
+    DAILY_STATS: "dailyStats",
+  };
+
+  async function load() {
+    const data = await StorageUtils.get(Object.values(keys));
+    state.dailyStats = data[keys.DAILY_STATS] || {};
+    return state;
   }
 
-  async load() {
-    const data = await StorageUtils.get(Object.values(this.keys));
-    this.state = {
-      dailyStats: data[this.keys.DAILY_STATS] || {},
-    };
-    return this.state;
-  }
-
-  async save() {
+  async function save() {
     await StorageUtils.set({
-      [this.keys.DAILY_STATS]: this.state.dailyStats,
+      [keys.DAILY_STATS]: state.dailyStats,
     });
   }
 
-  update(updates) {
-    Object.assign(this.state, updates);
+  function update(updates) {
+    Object.assign(state, updates);
   }
 
-  getTodayStats(date = new Date()) {
+  function getTodayStats(date = new Date()) {
     const todayKey = date.toISOString().slice(0, 10);
     return (
-      this.state.dailyStats[todayKey] || {
+      state.dailyStats[todayKey] || {
         shown: 0,
         skipped: 0,
         snoozed: 0,
@@ -52,17 +45,27 @@ export class StatsModel {
     );
   }
 
-  updateTodayStats(action, date = new Date()) {
+  async function updateTodayStats(action, date = new Date()) {
     const todayKey = date.toISOString().slice(0, 10);
-    const today = this.getTodayStats(date);
+    const today = getTodayStats(date);
     const nextToday = { ...today };
 
     if (action === "SKIP") nextToday.skipped += 1;
     if (action === "SNOOZE") nextToday.snoozed += 1;
-    if (action === "DISABLE_TODAY") nextToday.disabledToday = true;
-    if (action === "shown") nextToday.shown += 1;
+    if (action === "PAUSE") nextToday.disabledToday = true;
+    if (action === "SHOWN") nextToday.shown += 1;
 
-    this.state.dailyStats[todayKey] = nextToday;
-    return this.save();
+    state.dailyStats[todayKey] = nextToday;
+    return save();
   }
+
+  return {
+    state,
+    keys,
+    load,
+    save,
+    update,
+    getTodayStats,
+    updateTodayStats,
+  };
 }

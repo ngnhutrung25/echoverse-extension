@@ -1,6 +1,3 @@
-import { log } from "../../helpers.js";
-
-// Import StorageUtils for storage operations
 import { StorageUtils } from "../storage-utils.js";
 
 /**
@@ -12,112 +9,81 @@ import { StorageUtils } from "../storage-utils.js";
  * @property {number|null} nextDueAt - Next due timestamp
  */
 
-export class ReminderModel {
-  /**
-   * @param {string} mode - 'HOURLY' or 'RECURRING'
-   */
-  constructor(mode) {
-    this.mode = mode;
-    this.isHourly = mode === "HOURLY";
+export function createReminderModel(mode) {
+  const isHourly = mode === "HOURLY";
 
-    // Default state
-    this.state = {
-      enabled: true,
-      intervalMinutes: this.isHourly ? 60 : 30,
-      message: "Drink water",
-      lastTriggeredAt: null,
-      nextDueAt: null,
-    };
+  const state = {
+    enabled: true,
+    intervalMinutes: isHourly ? 60 : 30,
+    message: "Drink water",
+    lastTriggeredAt: null,
+    nextDueAt: null,
+  };
 
-    // Storage keys for this mode
-    this.keys = this.isHourly
-      ? {
-          ENABLED: "hourlyEnabled",
-          INTERVAL: "hourlyIntervalMinutes",
-          MESSAGE: "hourlyMessage",
-          LAST_TRIGGERED: "hourlyLastTriggeredAt",
-          NEXT_DUE: "hourlyNextDueAt",
-        }
-      : {
-          ENABLED: "recurringEnabled",
-          INTERVAL: "recurringIntervalMinutes",
-          MESSAGE: "recurringMessage",
-          LAST_TRIGGERED: "recurringLastTriggeredAt",
-          NEXT_DUE: "recurringNextDueAt",
-        };
+  const keys = isHourly
+    ? {
+        ENABLED: "hourlyEnabled",
+        INTERVAL: "hourlyIntervalMinutes",
+        MESSAGE: "hourlyMessage",
+        LAST_TRIGGERED: "hourlyLastTriggeredAt",
+        NEXT_DUE: "hourlyNextDueAt",
+      }
+    : {
+        ENABLED: "recurringEnabled",
+        INTERVAL: "recurringIntervalMinutes",
+        MESSAGE: "recurringMessage",
+        LAST_TRIGGERED: "recurringLastTriggeredAt",
+        NEXT_DUE: "recurringNextDueAt",
+      };
+
+  async function load() {
+    const data = await StorageUtils.get(Object.values(keys));
+    state.enabled = data[keys.ENABLED] !== false;
+    state.intervalMinutes = Math.max(
+      1,
+      Number(data[keys.INTERVAL] || (isHourly ? 60 : 30)),
+    );
+    state.message = data[keys.MESSAGE] || data.message || "Drink water";
+    state.lastTriggeredAt = data[keys.LAST_TRIGGERED] || null;
+    state.nextDueAt = data[keys.NEXT_DUE] || null;
+    return state;
   }
 
-  /**
-   * Load state from storage
-   * @returns {Promise<ReminderState>}
-   */
-  async load() {
-    const data = await StorageUtils.get(Object.values(this.keys));
-    this.state = {
-      enabled: data[this.keys.ENABLED] !== false,
-      intervalMinutes: Math.max(
-        1,
-        Number(data[this.keys.INTERVAL] || (this.isHourly ? 60 : 30)),
-      ),
-      message: data[this.keys.MESSAGE] || data.message || "Drink water",
-      lastTriggeredAt: data[this.keys.LAST_TRIGGERED] || null,
-      nextDueAt: data[this.keys.NEXT_DUE] || null,
-    };
-    return this.state;
-  }
-
-  /**
-   * Save state to storage
-   * @returns {Promise<void>}
-   */
-  async save() {
+  async function save() {
     await StorageUtils.set({
-      [this.keys.ENABLED]: this.state.enabled,
-      [this.keys.INTERVAL]: this.state.intervalMinutes,
-      [this.keys.MESSAGE]: this.state.message,
-      [this.keys.LAST_TRIGGERED]: this.state.lastTriggeredAt,
-      [this.keys.NEXT_DUE]: this.state.nextDueAt,
+      [keys.ENABLED]: state.enabled,
+      [keys.INTERVAL]: state.intervalMinutes,
+      [keys.MESSAGE]: state.message,
+      [keys.LAST_TRIGGERED]: state.lastTriggeredAt,
+      [keys.NEXT_DUE]: state.nextDueAt,
     });
   }
 
-  /**
-   * Update specific properties
-   * @param {Partial<ReminderState>} updates
-   */
-  update(updates) {
-    Object.assign(this.state, updates);
+  function update(updates) {
+    Object.assign(state, updates);
   }
 
-  /**
-   * Check if should debounce
-   * @param {number} now
-   * @param {number} debounceMs
-   * @returns {boolean}
-   */
-  shouldDebounce(now, debounceMs = 90000) {
-    return (
-      this.state.lastTriggeredAt &&
-      now - this.state.lastTriggeredAt < debounceMs
-    );
+  function shouldDebounce(now, debounceMs = 90000) {
+    return state.lastTriggeredAt && now - state.lastTriggeredAt < debounceMs;
   }
 
-  /**
-   * Update timing after trigger
-   * @param {number} now
-   */
-  updateTiming(now) {
-    this.state.lastTriggeredAt = now;
-    this.state.nextDueAt = now + this.state.intervalMinutes * 60 * 1000;
+  function updateTiming(now) {
+    state.lastTriggeredAt = now;
+    state.nextDueAt = now + state.intervalMinutes * 60 * 1000;
   }
 
-  /**
-   * Get next due time
-   * @returns {number}
-   */
-  getNextDueAt() {
-    return (
-      this.state.nextDueAt ||
-      Date.now() + this.state.intervalMinutes * 60 * 1000
-    );
+  function getNextDueAt() {
+    return state.nextDueAt || Date.now() + state.intervalMinutes * 60 * 1000;
   }
+
+  return {
+    state,
+    keys,
+    load,
+    save,
+    update,
+    shouldDebounce,
+    updateTiming,
+    getNextDueAt,
+  };
 }

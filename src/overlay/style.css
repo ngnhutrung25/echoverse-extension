@@ -113,7 +113,7 @@
 }
 
 #echoverse-overlay .echoverse-actions button[data-action="SNOOZE"],
-#echoverse-overlay .echoverse-actions button[data-action="DISABLE_TODAY"] {
+#echoverse-overlay .echoverse-actions button[data-action="PAUSE"] {
   background: #111827;
   color: #ffffff;
   border-color: #111827;
@@ -122,7 +122,7 @@
 #echoverse-overlay .echoverse-actions button[data-action="SNOOZE"]:hover,
 #echoverse-overlay
   .echoverse-actions
-  button[data-action="DISABLE_TODAY"]:hover {
+  button[data-action="PAUSE"]:hover {
   background: #000000;
   border-color: #000000;
 }
@@ -137,7 +137,7 @@
   button[data-action="SNOOZE"]:focus-visible,
 #echoverse-overlay
   .echoverse-actions
-  button[data-action="DISABLE_TODAY"]:focus-visible {
+  button[data-action="PAUSE"]:focus-visible {
   outline: 2px solid #000000aa;
   outline-offset: 2px;
 }

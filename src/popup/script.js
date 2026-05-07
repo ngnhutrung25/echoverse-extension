@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     recurringToggle: document.getElementById("recurring-toggle"),
     hourlySettings: document.getElementById("hourly-settings"),
     recurringSettings: document.getElementById("recurring-settings"),
+    pauseButton: document.getElementById("pause-toggle"),
     startButton: document.getElementById("start-timer"),
     statusBox: document.getElementById("status-box"),
     statusDiv: document.getElementById("status"),
@@ -95,12 +96,22 @@ document.addEventListener("DOMContentLoaded", () => {
       "hidden",
       !elements.recurringToggle.checked,
     );
+    elements.pauseButton.disabled = !elements.recurringToggle.checked;
   }
 
   function setMode(hourly, recurring) {
     elements.hourlyToggle.checked = hourly;
     elements.recurringToggle.checked = recurring;
     syncModeUI();
+  }
+
+  function setPauseButtonState(paused) {
+    elements.pauseButton.dataset.paused = String(paused);
+    elements.pauseButton.textContent = paused ? "Bật lại" : "Pause";
+    elements.pauseButton.setAttribute(
+      "aria-label",
+      paused ? "Resume recurring reminders" : "Pause recurring reminders",
+    );
   }
 
   /*
@@ -113,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
         STORAGE_KEYS.HOURLY_ENABLED,
         STORAGE_KEYS.HOURLY_INTERVAL_MINUTES,
         STORAGE_KEYS.RECURRING_ENABLED,
+        STORAGE_KEYS.RECURRING_PAUSED,
         STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
         STORAGE_KEYS.DAILY_STATS,
         STORAGE_KEYS.SOUND_ENABLED,
@@ -120,12 +132,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       setSoundIconState(data.soundEnabled !== false);
       setMode(data.hourlyEnabled !== false, data.recurringEnabled !== false);
+      setPauseButtonState(data.recurringPaused === true);
       elements.recurringIntervalValue.textContent = String(
         data.recurringIntervalMinutes || 30,
       );
 
-      const todayKey = new Date().toISOString().slice(0, 10);
-      const todayStats = (data.dailyStats && data.dailyStats[todayKey]) || {
+      const statsDayKey = new Date().toISOString().slice(0, 10);
+      const todayStats = (data.dailyStats && data.dailyStats[statsDayKey]) || {
         shown: 0,
       };
       elements.todayCount.textContent = String(todayStats.shown || 0);
@@ -167,6 +180,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function handlePauseButtonClick() {
+    const nextPaused = elements.pauseButton.dataset.paused !== "true";
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.SET_RECURRING_PAUSED,
+        recurringPaused: nextPaused,
+      });
+
+      if (response && typeof response.recurringPaused === "boolean") {
+        setPauseButtonState(response.recurringPaused);
+      } else {
+        setPauseButtonState(nextPaused);
+      }
+    } catch (error) {
+      log("Error updating pause state:", error);
+      updateStatus("Failed to update pause state", true);
+    }
+  }
+
   /**
    * Step interval up or down
    * @param {number} delta - Amount to step (positive or negative)
@@ -183,6 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.incrementButton.addEventListener("click", () => stepInterval(5));
   elements.startButton.addEventListener("click", handleStartButtonClick);
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
+  elements.pauseButton.addEventListener("click", handlePauseButtonClick);
 
   loadSettings();
 });

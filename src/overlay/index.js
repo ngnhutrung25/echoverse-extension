@@ -13,7 +13,7 @@ const MESSAGE_TYPES = {
 const ACTIONS = {
   SKIP: "SKIP",
   SNOOZE: "SNOOZE",
-  DISABLE_TODAY: "DISABLE_TODAY",
+  PAUSE: "PAUSE",
 };
 
 const UI = {
@@ -23,9 +23,9 @@ const UI = {
   OVERLAY_TITLE: "Time to rest",
   OVERLAY_MESSAGE: "Stand up. Stretch. Drink water.",
   // Overlay actions
-  OVERLAY_SKIP: "Skip",
+  OVERLAY_SKIP: "Yep, nghỉ chút",
   OVERLAY_SNOOZE: "Snooze 5m",
-  OVERLAY_DISABLE_TODAY: "Disable for today",
+  OVERLAY_PAUSE: "Pause",
   // Debug overlay
   DEBUG_OVERLAY_TITLE: "Debug overlay",
   DEBUG_OVERLAY_MESSAGE: "Overlay always on for UI testing.",
@@ -73,7 +73,7 @@ function createOverlayElement(payload) {
         <div class="echoverse-actions">
           <button type="button" data-action=${ACTIONS.SKIP}>${UI.OVERLAY_SKIP}</button>
           <button type="button" data-action=${ACTIONS.SNOOZE}>${UI.OVERLAY_SNOOZE}</button>
-          <button type="button" data-action=${ACTIONS.DISABLE_TODAY}>${UI.OVERLAY_DISABLE_TODAY}</button>
+          <button type="button" data-action=${ACTIONS.PAUSE}>${UI.OVERLAY_PAUSE}</button>
         </div>
       </div>
     </div>
