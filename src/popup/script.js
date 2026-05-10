@@ -1,5 +1,6 @@
-import { MESSAGE_TYPES, DEFAULTS, STORAGE_KEYS } from "../constants.js";
+import { MESSAGE_TYPES, DEFAULTS } from "../constants.js";
 import { log } from "../helpers.js";
+import store from "../state/store.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
@@ -120,25 +121,21 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadSettings() {
     clearStatus();
     try {
-      const data = await chrome.storage.sync.get([
-        STORAGE_KEYS.HOURLY_ENABLED,
-        STORAGE_KEYS.HOURLY_INTERVAL_MINUTES,
-        STORAGE_KEYS.RECURRING_ENABLED,
-        STORAGE_KEYS.RECURRING_PAUSED,
-        STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
-        STORAGE_KEYS.DAILY_STATS,
-        STORAGE_KEYS.SOUND_ENABLED,
-      ]);
+      await store.init();
+      const settingsState = store.getSettingsState();
+      const hourlyState = store.getReminderState("hourly");
+      const recurringState = store.getReminderState("recurring");
+      const statsState = store.getStatsState();
 
-      setSoundIconState(data.soundEnabled !== false);
-      setMode(data.hourlyEnabled !== false, data.recurringEnabled !== false);
-      setPauseButtonState(data.recurringPaused === true);
+      setSoundIconState(settingsState.soundEnabled !== false);
+      setMode(hourlyState.enabled !== false, recurringState.enabled !== false);
+      setPauseButtonState(settingsState.recurringPaused === true);
       elements.recurringIntervalValue.textContent = String(
-        data.recurringIntervalMinutes || 30,
+        recurringState.intervalMinutes || 30,
       );
 
       const statsDayKey = new Date().toISOString().slice(0, 10);
-      const todayStats = (data.dailyStats && data.dailyStats[statsDayKey]) || {
+      const todayStats = (statsState.dailyStats && statsState.dailyStats[statsDayKey]) || {
         shown: 0,
       };
       elements.todayCount.textContent = String(todayStats.shown || 0);
@@ -166,11 +163,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (response && response.status) {
         updateStatus(response.status);
-        await chrome.storage.sync.set({
-          hourlyEnabled: payload.hourlyEnabled,
-          recurringEnabled: payload.recurringEnabled,
-          recurringIntervalMinutes: payload.recurringIntervalMinutes,
-        });
       } else if (response && response.error) {
         updateStatus(response.error, true);
       }

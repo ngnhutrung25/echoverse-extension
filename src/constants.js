@@ -54,4 +54,10 @@ export const STORAGE_KEYS = {
   RECURRING_PAUSED: "recurringPaused",
   HOURLY_INTERVAL_MINUTES: "hourlyIntervalMinutes",
   RECURRING_INTERVAL_MINUTES: "recurringIntervalMinutes",
+  HOURLY_MESSAGE: "hourlyMessage",
+  RECURRING_MESSAGE: "recurringMessage",
+  HOURLY_LAST_TRIGGERED_AT: "hourlyLastTriggeredAt",
+  RECURRING_LAST_TRIGGERED_AT: "recurringLastTriggeredAt",
+  HOURLY_NEXT_DUE_AT: "hourlyNextDueAt",
+  RECURRING_NEXT_DUE_AT: "recurringNextDueAt",
 };

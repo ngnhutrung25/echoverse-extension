@@ -12,7 +12,7 @@ import { getRandomPreloadedImage } from "./image.js";
 import { playSound } from "./sound.js";
 import { sendToTabs } from "./utils.js";
 import { sendNotification } from "./notification.js";
-import store from "./store.js";
+import store from "../state/store.js";
 
 // ========================================
 // TRIGGER VALIDATION & LOGIC
@@ -87,7 +87,6 @@ async function triggerReminder(
 ) {
   const { updateTiming = true } = options;
   const now = Date.now();
-
   // Use store pattern - get state directly
   const reminderState = store.getReminderState(mode);
   const settingsState = store.getSettingsState();
@@ -309,6 +308,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ========================================
 
 chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
+  const hourlyModel = store.getModel("hourly");
+  const recurringModel = store.getModel("recurring");
   /**
    * Overlay action handler
    */
@@ -321,7 +322,6 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
   if (message?.type === MESSAGE_TYPES.SET_RECURRING_PAUSED) {
     const nextPaused = Boolean(message.recurringPaused);
-    const recurringModel = store.getModel("recurring");
     const recurringIntervalMinutes = normalizeInterval(recurringModel.state);
 
     await store.updateSettings({
@@ -349,8 +349,8 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
    * Start timer handler
    */
   if (message.type === MESSAGE_TYPES.START_TIMER) {
-    const updates = {};
     const enabledModes = [];
+    const now = Date.now();
 
     if (message.hourlyEnabled) {
       const hourlyIntervalMinutes = Math.max(
@@ -359,13 +359,17 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
           message.hourlyIntervalMinutes || DEFAULTS.HOURLY_INTERVAL_MINUTES,
         ),
       );
-      updates.hourlyEnabled = true;
-      updates.hourlyIntervalMinutes = hourlyIntervalMinutes;
-      updates.hourlyMessage = DEFAULTS.MESSAGE;
+      hourlyModel.update({
+        enabled: true,
+        intervalMinutes: hourlyIntervalMinutes,
+        message: DEFAULTS.MESSAGE,
+        lastTriggeredAt: null,
+        nextDueAt: now + hourlyIntervalMinutes * 60 * 1000,
+      });
       await ensureReminderAlarm(MODES.HOURLY, hourlyIntervalMinutes);
       enabledModes.push("theo giờ");
     } else {
-      updates.hourlyEnabled = false;
+      hourlyModel.update({ enabled: false, lastTriggeredAt: null, nextDueAt: null });
       await chrome.alarms.clear(ALARM_NAMES.HOURLY);
     }
 
@@ -377,9 +381,13 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
             DEFAULTS.RECURRING_INTERVAL_MINUTES,
         ),
       );
-      updates.recurringEnabled = true;
-      updates.recurringIntervalMinutes = recurringIntervalMinutes;
-      updates.recurringMessage = DEFAULTS.MESSAGE;
+      recurringModel.update({
+        enabled: true,
+        intervalMinutes: recurringIntervalMinutes,
+        message: DEFAULTS.MESSAGE,
+        lastTriggeredAt: null,
+        nextDueAt: now + recurringIntervalMinutes * 60 * 1000,
+      });
       if (!isRecurringPaused(store.getSettingsState())) {
         await ensureReminderAlarm(MODES.RECURRING, recurringIntervalMinutes);
       } else {
@@ -387,12 +395,11 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       }
       enabledModes.push("lặp lại");
     } else {
-      updates.recurringEnabled = false;
+      recurringModel.update({ enabled: false, lastTriggeredAt: null, nextDueAt: null });
       await chrome.alarms.clear(ALARM_NAMES.RECURRING);
     }
 
-    updates.lastTriggeredAt = null;
-    await chrome.storage.sync.set(updates);
+    await store.saveAll();
     await scheduleDailyReset();
     sendResponse({
       status: `Echoverse đã bật: ${enabledModes.join(" + ")}.`,
@@ -406,11 +413,10 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
   if (message?.type === MESSAGE_TYPES.TOGGLE_SOUND) {
     try {
       log("Toggling sound...");
-      const data = await chrome.storage.sync.get("soundEnabled");
-      const currentSoundEnabled = data.soundEnabled !== false;
+      const currentSoundEnabled = store.getSettingsState().soundEnabled !== false;
 
       const newSoundEnabled = !currentSoundEnabled;
-      await chrome.storage.sync.set({ soundEnabled: newSoundEnabled });
+      await store.updateSettings({ soundEnabled: newSoundEnabled });
       log(`Sound has been ${newSoundEnabled ? "enabled" : "disabled"}.`);
 
       sendResponse({ soundEnabled: newSoundEnabled });

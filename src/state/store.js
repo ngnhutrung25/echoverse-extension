@@ -1,11 +1,7 @@
 import { log } from "../helpers.js";
-import { createReminderModel } from "./models/reminder-model.js";
-import { createSettingsModel } from "./models/settings-model.js";
-import { createStatsModel } from "./models/stats-model.js";
-
-// ========================================
-// OBSERVABLE STORE
-// ========================================
+import { createReminderModel } from "./reminder-model.js";
+import { createSettingsModel } from "./settings-model.js";
+import { createStatsModel } from "./stats-model.js";
 
 export function createStoreManager() {
   const models = {

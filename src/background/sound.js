@@ -1,4 +1,5 @@
-import { MESSAGE_TYPES, STORAGE_KEYS } from "../constants.js";
+import { MESSAGE_TYPES } from "../constants.js";
+import store from "../state/store.js";
 import { log } from "../helpers.js";
 
 // Global state variable
@@ -30,8 +31,8 @@ export async function setupOffscreenDocument(path) {
 
 export async function playSound() {
   try {
-    const data = await chrome.storage.sync.get(STORAGE_KEYS.SOUND_ENABLED);
-    const soundEnabled = data.soundEnabled !== false;
+    await store.init();
+    const soundEnabled = store.getSettingsState().soundEnabled !== false;
     log(`Sound enabled state: ${soundEnabled}`);
 
     if (soundEnabled) {

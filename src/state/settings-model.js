@@ -1,10 +1,5 @@
-import { StorageUtils } from "../storage-utils.js";
-
-/**
- * @typedef {Object} SettingsState
- * @property {boolean} soundEnabled - Whether sound is enabled
- * @property {boolean} recurringPaused - Whether recurring reminders are paused
- */
+import { STORAGE_KEYS } from "../constants.js";
+import { StorageUtils } from "../background/storage-utils.js";
 
 export function createSettingsModel() {
   const state = {
@@ -13,8 +8,8 @@ export function createSettingsModel() {
   };
 
   const keys = {
-    SOUND_ENABLED: "soundEnabled",
-    RECURRING_PAUSED: "recurringPaused",
+    SOUND_ENABLED: STORAGE_KEYS.SOUND_ENABLED,
+    RECURRING_PAUSED: STORAGE_KEYS.RECURRING_PAUSED,
   };
 
   async function load() {

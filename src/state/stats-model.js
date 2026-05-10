@@ -1,12 +1,5 @@
-import { StorageUtils } from "../storage-utils.js";
-
-/**
- * @typedef {Object} StatsState
- * @property {number} shown - Count of shown reminders
- * @property {number} skipped - Count of skipped reminders
- * @property {number} snoozed - Count of snoozed reminders
- * @property {boolean} disabledToday - Whether disabled for today
- */
+import { STORAGE_KEYS, ACTIONS } from "../constants.js";
+import { StorageUtils } from "../background/storage-utils.js";
 
 export function createStatsModel() {
   const state = {
@@ -14,7 +7,7 @@ export function createStatsModel() {
   };
 
   const keys = {
-    DAILY_STATS: "dailyStats",
+    DAILY_STATS: STORAGE_KEYS.DAILY_STATS,
   };
 
   async function load() {
@@ -50,22 +43,14 @@ export function createStatsModel() {
     const today = getTodayStats(date);
     const nextToday = { ...today };
 
-    if (action === "SKIP") nextToday.skipped += 1;
-    if (action === "SNOOZE") nextToday.snoozed += 1;
-    if (action === "PAUSE") nextToday.disabledToday = true;
+    if (action === ACTIONS.SKIP) nextToday.skipped += 1;
+    if (action === ACTIONS.SNOOZE) nextToday.snoozed += 1;
+    if (action === ACTIONS.PAUSE) nextToday.disabledToday = true;
     if (action === "SHOWN") nextToday.shown += 1;
 
     state.dailyStats[todayKey] = nextToday;
     return save();
   }
 
-  return {
-    state,
-    keys,
-    load,
-    save,
-    update,
-    getTodayStats,
-    updateTodayStats,
-  };
+  return { state, keys, load, save, update, getTodayStats, updateTodayStats };
 }
