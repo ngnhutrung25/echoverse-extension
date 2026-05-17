@@ -8,29 +8,42 @@ document.addEventListener("DOMContentLoaded", () => {
     recurringToggle: document.getElementById("recurring-toggle"),
     hourlySettings: document.getElementById("hourly-settings"),
     recurringSettings: document.getElementById("recurring-settings"),
-    pauseButton: document.getElementById("pause-toggle"),
-    startButton: document.getElementById("start-timer"),
+    recurringIntervalControls: document.getElementById(
+      "recurring-interval-controls",
+    ),
     statusBox: document.getElementById("status-box"),
     statusDiv: document.getElementById("status"),
     todayCount: document.getElementById("today-count"),
+    hourlyNextReminder: document.getElementById("hourly-next-reminder"),
+    recurringNextReminder: document.getElementById("recurring-next-reminder"),
     recurringIntervalValue: document.getElementById("recurring-interval"),
     decrementButton: document.getElementById("decrement-button"),
     incrementButton: document.getElementById("increment-button"),
     soundToggleButton: document.getElementById("sound-toggle"),
-    soundToggleIcon: document.getElementById("sound-toggle-icon"),
+  };
+  let renderTimer = null;
+  const nextDueState = {
+    hourly: null,
+    recurring: null,
   };
 
   /*
    * Status functions
    */
   let statusTimer = null;
+  let statusHideTimer = null;
 
   function updateStatus(message, isError = false) {
     if (statusTimer) {
       clearTimeout(statusTimer);
     }
+    if (statusHideTimer) {
+      clearTimeout(statusHideTimer);
+      statusHideTimer = null;
+    }
 
     elements.statusBox.classList.remove("hidden");
+    elements.statusBox.classList.add("visible");
     elements.statusDiv.dataset.error = String(isError);
     elements.statusDiv.textContent = message;
 
@@ -44,9 +57,16 @@ document.addEventListener("DOMContentLoaded", () => {
       clearTimeout(statusTimer);
       statusTimer = null;
     }
+    if (statusHideTimer) {
+      clearTimeout(statusHideTimer);
+    }
 
-    elements.statusDiv.textContent = "";
-    elements.statusBox.classList.add("hidden");
+    elements.statusBox.classList.remove("visible");
+    statusHideTimer = setTimeout(() => {
+      elements.statusDiv.textContent = "";
+      elements.statusBox.classList.add("hidden");
+      statusHideTimer = null;
+    }, 260);
   }
 
   /*
@@ -85,34 +105,88 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /*
-   * Mode functions
-   */
+  function formatCountdown(nextDueAt) {
+    if (!nextDueAt) {
+      return "--";
+    }
+
+    const remainingMs = nextDueAt - Date.now();
+    if (remainingMs <= 0) {
+      return "Sắp tới";
+    }
+
+    const totalMinutes = Math.ceil(remainingMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours <= 0) {
+      return `Còn ${totalMinutes} phút`;
+    }
+
+    if (minutes <= 0) {
+      return `Còn ${hours} giờ`;
+    }
+
+    return `Còn ${hours} giờ ${minutes} phút`;
+  }
+
+  function renderNextReminders() {
+    elements.hourlyNextReminder.textContent = elements.hourlyToggle.checked
+      ? formatCountdown(nextDueState.hourly)
+      : "--";
+    elements.recurringNextReminder.textContent = elements.recurringToggle.checked
+      ? formatCountdown(nextDueState.recurring)
+      : "--";
+  }
+
+  async function getAlarmNextDueAt(alarmName) {
+    return new Promise((resolve) => {
+      chrome.alarms.get(alarmName, (alarm) => {
+        if (chrome.runtime.lastError || !alarm?.scheduledTime) {
+          resolve(null);
+          return;
+        }
+
+        resolve(alarm.scheduledTime);
+      });
+    });
+  }
+
+  function renderNextRemindersImmediate() {
+    const recurringInterval =
+      Number(elements.recurringIntervalValue.textContent) || 15;
+    nextDueState.recurring = elements.recurringToggle.checked
+      ? Date.now() + recurringInterval * 60 * 1000
+      : null;
+    renderNextReminders();
+  }
+
+  function startCountdownRenderLoop() {
+    if (renderTimer) {
+      clearInterval(renderTimer);
+    }
+
+    renderNextReminders();
+    renderTimer = setInterval(renderNextReminders, 1000);
+  }
+
   function syncModeUI() {
+    elements.hourlySettings.classList.remove("hidden");
     elements.hourlySettings.classList.toggle(
-      "hidden",
+      "disabled",
       !elements.hourlyToggle.checked,
     );
+    elements.recurringSettings.classList.remove("hidden");
     elements.recurringSettings.classList.toggle(
-      "hidden",
+      "disabled",
       !elements.recurringToggle.checked,
     );
-    elements.pauseButton.disabled = !elements.recurringToggle.checked;
   }
 
   function setMode(hourly, recurring) {
     elements.hourlyToggle.checked = hourly;
     elements.recurringToggle.checked = recurring;
     syncModeUI();
-  }
-
-  function setPauseButtonState(paused) {
-    elements.pauseButton.dataset.paused = String(paused);
-    elements.pauseButton.textContent = paused ? "Bật lại" : "Pause";
-    elements.pauseButton.setAttribute(
-      "aria-label",
-      paused ? "Resume recurring reminders" : "Pause recurring reminders",
-    );
   }
 
   /*
@@ -129,66 +203,68 @@ document.addEventListener("DOMContentLoaded", () => {
 
       setSoundIconState(settingsState.soundEnabled !== false);
       setMode(hourlyState.enabled !== false, recurringState.enabled !== false);
-      setPauseButtonState(settingsState.recurringPaused === true);
+      syncModeUI();
       elements.recurringIntervalValue.textContent = String(
-        recurringState.intervalMinutes || 30,
+        recurringState.intervalMinutes || 15,
       );
+      nextDueState.hourly =
+        hourlyState.enabled === true
+          ? (await getAlarmNextDueAt("echoverse-hourly-reminder")) ||
+            hourlyState.nextDueAt
+          : null;
+      nextDueState.recurring =
+        recurringState.enabled === true
+          ? (await getAlarmNextDueAt("echoverse-recurring-reminder")) ||
+            recurringState.nextDueAt
+          : null;
 
       const statsDayKey = new Date().toISOString().slice(0, 10);
       const todayStats = (statsState.dailyStats && statsState.dailyStats[statsDayKey]) || {
         shown: 0,
       };
       elements.todayCount.textContent = String(todayStats.shown || 0);
+      startCountdownRenderLoop();
     } catch (error) {
       log("Error loading settings:", error);
       updateStatus("Failed to load settings", true);
     }
   }
 
-  /*
-   * Start button functions
-   */
-  async function handleStartButtonClick() {
+  async function syncTimerState() {
     const intervalValue = +elements.recurringIntervalValue.textContent;
 
     const payload = {
       type: MESSAGE_TYPES.START_TIMER,
       hourlyEnabled: elements.hourlyToggle.checked,
       recurringEnabled: elements.recurringToggle.checked,
+      recurringPaused: !elements.recurringToggle.checked,
       recurringIntervalMinutes: intervalValue,
+      hourlyIntervalMinutes: DEFAULTS.HOURLY_INTERVAL_MINUTES,
     };
 
     try {
       const response = await chrome.runtime.sendMessage(payload);
 
+      if (response && Object.prototype.hasOwnProperty.call(response, "hourlyNextDueAt")) {
+        nextDueState.hourly = response.hourlyNextDueAt;
+      }
+      if (response && Object.prototype.hasOwnProperty.call(response, "recurringNextDueAt")) {
+        nextDueState.recurring = response.recurringNextDueAt;
+      } else {
+        nextDueState.recurring = elements.recurringToggle.checked
+          ? Date.now() + intervalValue * 60 * 1000
+          : null;
+      }
+      renderNextReminders();
+
       if (response && response.status) {
-        updateStatus(response.status);
+        updateStatus("Đã cập nhật chuông báo");
       } else if (response && response.error) {
         updateStatus(response.error, true);
       }
     } catch (error) {
-      log("Error starting timer:", error);
-      updateStatus("Failed to start timer", true);
-    }
-  }
-
-  async function handlePauseButtonClick() {
-    const nextPaused = elements.pauseButton.dataset.paused !== "true";
-
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.SET_RECURRING_PAUSED,
-        recurringPaused: nextPaused,
-      });
-
-      if (response && typeof response.recurringPaused === "boolean") {
-        setPauseButtonState(response.recurringPaused);
-      } else {
-        setPauseButtonState(nextPaused);
-      }
-    } catch (error) {
-      log("Error updating pause state:", error);
-      updateStatus("Failed to update pause state", true);
+      log("Error syncing timer state:", error);
+      updateStatus("Không thể cập nhật chuông báo", true);
     }
   }
 
@@ -200,15 +276,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const current = +elements.recurringIntervalValue.textContent;
     const next = Math.max(5, current + delta);
     elements.recurringIntervalValue.textContent = next;
+    renderNextRemindersImmediate();
+    syncTimerState();
   }
 
-  elements.hourlyToggle.addEventListener("change", syncModeUI);
-  elements.recurringToggle.addEventListener("change", syncModeUI);
+  elements.hourlyToggle.addEventListener("change", () => {
+    syncModeUI();
+    renderNextRemindersImmediate();
+    syncTimerState();
+  });
+  elements.recurringToggle.addEventListener("change", () => {
+    syncModeUI();
+    renderNextRemindersImmediate();
+    syncTimerState();
+  });
   elements.decrementButton.addEventListener("click", () => stepInterval(-5));
   elements.incrementButton.addEventListener("click", () => stepInterval(5));
-  elements.startButton.addEventListener("click", handleStartButtonClick);
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
-  elements.pauseButton.addEventListener("click", handlePauseButtonClick);
 
   loadSettings();
 });

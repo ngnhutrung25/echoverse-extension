@@ -66,22 +66,42 @@ export function getRandomLandscapeImage() {
  * @returns {Promise<string>} Image data URL or original URL
  */
 export async function getRandomPreloadedImage() {
-  const imageUrl = getRandomLandscapeImage();
+  const triedUrls = new Set();
+  const maxAttempts = 2;
 
-  try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+  while (triedUrls.size < maxAttempts) {
+    const imageUrl = getRandomLandscapeImage();
+    if (triedUrls.has(imageUrl)) {
+      continue;
+    }
+    triedUrls.add(imageUrl);
 
-    log(`Loaded image: ${imageUrl}`);
-    return dataUrl;
-  } catch (error) {
-    log(`Failed to load image: ${imageUrl}`, error);
-    return imageUrl; // fallback to original URL
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      if (!blob.size) {
+        throw new Error("Empty image blob");
+      }
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      log(`Loaded image: ${imageUrl}`);
+      return dataUrl;
+    } catch (error) {
+      log(`Failed to load image: ${imageUrl}`, error);
+    }
   }
+
+  const fallbackUrl = getRandomLandscapeImage();
+  log(`Fallback to original image URL: ${fallbackUrl}`);
+  return fallbackUrl;
 }

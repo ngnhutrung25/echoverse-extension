@@ -25,7 +25,9 @@ body {
 
 body {
   min-height: 100vh;
+  width: 100%;
   overflow: hidden;
+  user-select: none;
   padding: 16px;
   background: var(--bg);
   color: var(--text);
@@ -47,7 +49,7 @@ body {
   border: 0.5px solid var(--border);
   border-radius: 24px;
   background: var(--card);
-  padding: 20px;
+  padding: 16px;
   box-shadow: var(--shadow);
 }
 
@@ -143,6 +145,7 @@ body {
 
 .panel {
   overflow: hidden;
+  padding: 14px;
 }
 
 .toggle-row {
@@ -188,7 +191,6 @@ body {
 }
 
 .label {
-  user-select: none;
   margin-left: 12px;
   color: var(--text);
   font-size: 14px;
@@ -200,6 +202,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.mode-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .interval-controls {
@@ -241,7 +249,44 @@ body {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  user-select: none;
+}
+
+.mode-settings.disabled {
+  opacity: 0.45;
+}
+
+.mode-settings.disabled .step-button {
+  pointer-events: none;
+}
+
+.mode-settings.disabled .next-reminder-row {
+  opacity: 0.75;
+}
+
+.next-reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 0.5px solid rgba(0, 0, 0, 0.05);
+}
+
+.next-reminder-label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.next-reminder-value {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-align: right;
 }
 
 .step-icon {
@@ -273,65 +318,6 @@ body {
   background: var(--primary-hover);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   transform: translateY(-1px);
-}
-
-.pause-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.pause-copy {
-  min-width: 0;
-}
-
-.pause-title {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.pause-hint {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 92px;
-  border: 0.5px solid rgba(0, 0, 0, 0.1);
-  border-radius: 999px;
-  background: #fff;
-  padding: 10px 14px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition:
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease,
-    opacity 160ms ease;
-}
-
-.secondary-button:hover:not(:disabled) {
-  background: #f9fafb;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  transform: none;
 }
 
 .stats-row {
@@ -371,8 +357,25 @@ body {
 }
 
 .status-box {
-  margin: 16px auto 0;
+  position: fixed;
+  left: 50%;
+  top: 16px;
+  padding: 8px;
+  z-index: 50;
+  width: 240px;
+  margin: 0;
   text-align: center;
+  transform: translate(-50%, -16px);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.12),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  will-change: transform, opacity;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
 }
 
 .status-text {
@@ -382,31 +385,19 @@ body {
   font-weight: 500;
 }
 
-.hidden {
-  display: none !important;
+.status-box.visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
 }
 
-@media (max-width: 420px) {
-  body {
-    width: 100%;
-    padding: 12px;
-  }
+.status-box.hidden {
+  display: block !important;
+  opacity: 0;
+  transform: translate(-50%, -20px);
+  visibility: hidden;
+}
 
-  .popup-shell {
-    padding: 16px;
-  }
-
-  .panel,
-  .status-box {
-    padding: 14px;
-  }
-
-  .pause-panel {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .secondary-button {
-    width: 100%;
-  }
+.hidden {
+  display: none !important;
 }

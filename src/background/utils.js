@@ -1,9 +1,20 @@
 import { log } from "../helpers.js";
+import { DEFAULTS } from "../constants.js";
 
 const EXCLUDED_ERROR_MESSAGES = [
   "Receiving end does not exist",
   "The message port closed before a response was received",
 ];
+
+export function normalizeInterval(data) {
+  const value = Number(
+    data.recurringIntervalMinutes || DEFAULTS.RECURRING_INTERVAL_MINUTES,
+  );
+  if (Number.isFinite(value)) {
+    return Math.max(5, Math.round(value / 5) * 5);
+  }
+  return DEFAULTS.RECURRING_INTERVAL_MINUTES;
+}
 
 export function sendToTabs(message) {
   chrome.tabs.query({}, (tabs) => {

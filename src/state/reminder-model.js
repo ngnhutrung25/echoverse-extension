@@ -6,7 +6,7 @@ export function createReminderModel(mode) {
   const prefix = isHourly ? "HOURLY" : "RECURRING";
 
   const state = {
-    enabled: true,
+    enabled: false,
     intervalMinutes: isHourly ? DEFAULTS.HOURLY_INTERVAL_MINUTES : DEFAULTS.RECURRING_INTERVAL_MINUTES,
     message: DEFAULTS.MESSAGE,
     lastTriggeredAt: null,
@@ -23,7 +23,7 @@ export function createReminderModel(mode) {
 
   async function load() {
     const data = await StorageUtils.get(Object.values(keys));
-    state.enabled = data[keys.ENABLED] !== false;
+    state.enabled = data[keys.ENABLED] === true;
     state.intervalMinutes = Math.max(
       1,
       Number(data[keys.INTERVAL] || (isHourly ? DEFAULTS.HOURLY_INTERVAL_MINUTES : DEFAULTS.RECURRING_INTERVAL_MINUTES)),

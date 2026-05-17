@@ -7,16 +7,11 @@ export const ALARM_NAMES = {
 
 export const DEFAULTS = {
   HOURLY_INTERVAL_MINUTES: 60,
-  RECURRING_INTERVAL_MINUTES: 30,
+  RECURRING_INTERVAL_MINUTES: 15,
   MESSAGE: "Drink water",
   MESSAGE_POOL: ["Drink water", "Look away from screen", "Breathe 10 seconds"],
   SNOOZE_DELAY_MINUTES: 5,
-  STATUS_TIMEOUT_MS: 3000,
-};
-
-export const LIMITS = {
-  TIMER_DEBOUNCE_MS: 90 * 1000,
-  MAX_TIMER_GAP_MS: 10 * 60 * 1000,
+  STATUS_TIMEOUT_MS: 1500,
 };
 
 export const MODES = {
@@ -43,7 +38,6 @@ export const ACTIONS = {
 export const SOURCE_TYPES = {
   STARTUP: "STARTUP",
   WAKE: "WAKE",
-  ALARM: "ALARM",
 };
 
 export const STORAGE_KEYS = {

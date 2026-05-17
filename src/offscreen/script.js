@@ -2,6 +2,10 @@ import { MESSAGE_TYPES } from "../constants.js";
 import { log } from "../helpers.js";
 
 const AUDIO_ID = "notification-sound";
+const SOUND_SOURCES = {
+  bell: "../../assets/bell.mp3",
+  beep: "../../assets/beep.mp3",
+};
 const LOG_MESSAGES = {
   SOUND_PLAYED: "Sound played successfully in offscreen document.",
   SOUND_ERROR: "Error playing sound in offscreen document.",
@@ -30,15 +34,23 @@ function resetAudio(audio) {
   audio.currentTime = 0;
 }
 
+function setAudioSource(audio, soundName) {
+  const nextSource = SOUND_SOURCES[soundName] || SOUND_SOURCES.bell;
+  if (audio.getAttribute("src") !== nextSource) {
+    audio.setAttribute("src", nextSource);
+  }
+}
+
 /**
  * Play notification sound
  */
-async function playSound() {
+async function playSound(soundName) {
   const audio = initializeAudio();
   if (!audio) {
     return;
   }
 
+  setAudioSource(audio, soundName);
   resetAudio(audio);
 
   try {
@@ -51,6 +63,6 @@ async function playSound() {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === MESSAGE_TYPES.PLAY_SOUND_OFFSCREEN) {
-    playSound();
+    playSound(message.soundName);
   }
 });

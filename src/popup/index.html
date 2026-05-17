@@ -56,7 +56,14 @@
             <div class="toggle-track"></div>
             <span class="label">Theo giờ</span>
           </label>
-          <div id="hourly-settings" class="hidden"></div>
+          <div id="hourly-settings" class="mode-settings">
+            <div class="next-reminder-row">
+              <span class="next-reminder-label">Chuông báo tiếp theo</span>
+              <span id="hourly-next-reminder" class="next-reminder-value"
+                >--</span
+              >
+            </div>
+          </div>
         </section>
 
         <section class="panel">
@@ -71,69 +78,61 @@
             <span class="label">Lặp lại</span>
           </label>
 
-          <div id="recurring-settings" class="interval-row hidden">
-            <label for="recurring-interval" class="label" style="margin-left: 0"
-              >Số phút</label
-            >
-            <div class="interval-controls">
-              <button type="button" id="decrement-button" class="step-button">
-                <svg
-                  class="step-icon"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 12h14"
-                  />
-                </svg>
-              </button>
-              <span id="recurring-interval" class="interval-value">30</span>
-              <button type="button" id="increment-button" class="step-button">
-                <svg
-                  class="step-icon"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 12h14m-7 7V5"
-                  />
-                </svg>
-              </button>
+          <div id="recurring-settings" class="mode-settings">
+            <div class="interval-row">
+              <label for="recurring-interval" class="label" style="margin-left: 0"
+                >Số phút</label
+              >
+              <div class="interval-controls" id="recurring-interval-controls">
+                <button type="button" id="decrement-button" class="step-button">
+                  <svg
+                    class="step-icon"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 12h14"
+                    />
+                  </svg>
+                </button>
+                <span id="recurring-interval" class="interval-value">15</span>
+                <button type="button" id="increment-button" class="step-button">
+                  <svg
+                    class="step-icon"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 12h14m-7 7V5"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="next-reminder-row">
+              <span class="next-reminder-label">Chuông báo tiếp theo</span>
+              <span id="recurring-next-reminder" class="next-reminder-value"
+                >--</span
+              >
             </div>
           </div>
         </section>
-
-        <section class="panel pause-panel">
-          <div class="pause-copy">
-            <p class="pause-title">Pause</p>
-            <p class="pause-hint">Tạm dừng nhắc lặp lại, bật lại khi cần.</p>
-          </div>
-          <button id="pause-toggle" type="button" class="secondary-button">
-            Pause
-          </button>
-        </section>
-      </div>
-
-      <div style="margin-top: 20px">
-        <button id="start-timer" type="button" class="primary-button">
-          Bắt đầu
-        </button>
       </div>
 
       <div class="panel" style="margin-top: 16px">

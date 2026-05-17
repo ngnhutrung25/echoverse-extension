@@ -29,7 +29,7 @@ export async function setupOffscreenDocument(path) {
   }
 }
 
-export async function playSound() {
+export async function playSound(soundName = "bell") {
   try {
     await store.init();
     const soundEnabled = store.getSettingsState().soundEnabled !== false;
@@ -42,6 +42,7 @@ export async function playSound() {
         chrome.runtime.sendMessage(
           {
             type: MESSAGE_TYPES.PLAY_SOUND_OFFSCREEN,
+            soundName,
           },
           () => {
             if (chrome.runtime.lastError) {
