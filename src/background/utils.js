@@ -8,7 +8,9 @@ const EXCLUDED_ERROR_MESSAGES = [
 
 export function normalizeInterval(data) {
   const value = Number(
-    data.recurringIntervalMinutes || DEFAULTS.RECURRING_INTERVAL_MINUTES,
+    data.intervalMinutes ||
+      data.recurringIntervalMinutes ||
+      DEFAULTS.RECURRING_INTERVAL_MINUTES,
   );
   if (Number.isFinite(value)) {
     return Math.max(5, Math.round(value / 5) * 5);

@@ -354,9 +354,14 @@ chrome.idle.onStateChanged.addListener(async (state) => {
   if (state === "locked") {
     log(`Computer became locked, clearing alarms...`);
     try {
+      const hourlyModel = store.getModel("hourly");
+      const recurringModel = store.getModel("recurring");
       await chrome.alarms.clear(ALARM_NAMES.HOURLY);
       await chrome.alarms.clear(ALARM_NAMES.RECURRING);
       await chrome.alarms.clear(ALARM_NAMES.SNOOZE);
+      hourlyModel.update({ nextDueAt: null });
+      recurringModel.update({ nextDueAt: null });
+      await Promise.all([hourlyModel.save(), recurringModel.save()]);
       log("All reminder alarms cleared on sleep.");
     } catch (error) {
       log(`Error clearing alarms on sleep: ${error.message}`);

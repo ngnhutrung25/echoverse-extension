@@ -134,7 +134,8 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.hourlyNextReminder.textContent = elements.hourlyToggle.checked
       ? formatCountdown(nextDueState.hourly)
       : "--";
-    elements.recurringNextReminder.textContent = elements.recurringToggle.checked
+    elements.recurringNextReminder.textContent = elements.recurringToggle
+      .checked
       ? formatCountdown(nextDueState.recurring)
       : "--";
   }
@@ -219,7 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
           : null;
 
       const statsDayKey = new Date().toISOString().slice(0, 10);
-      const todayStats = (statsState.dailyStats && statsState.dailyStats[statsDayKey]) || {
+      const todayStats = (statsState.dailyStats &&
+        statsState.dailyStats[statsDayKey]) || {
         shown: 0,
       };
       elements.todayCount.textContent = String(todayStats.shown || 0);
@@ -244,16 +246,23 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await chrome.runtime.sendMessage(payload);
 
-      if (response && Object.prototype.hasOwnProperty.call(response, "hourlyNextDueAt")) {
+      if (
+        response &&
+        Object.prototype.hasOwnProperty.call(response, "hourlyNextDueAt")
+      ) {
         nextDueState.hourly = response.hourlyNextDueAt;
       }
-      if (response && Object.prototype.hasOwnProperty.call(response, "recurringNextDueAt")) {
+      if (
+        response &&
+        Object.prototype.hasOwnProperty.call(response, "recurringNextDueAt")
+      ) {
         nextDueState.recurring = response.recurringNextDueAt;
       } else {
         nextDueState.recurring = elements.recurringToggle.checked
           ? Date.now() + intervalValue * 60 * 1000
           : null;
       }
+
       renderNextReminders();
 
       if (response && response.status) {
