@@ -3,22 +3,33 @@ import { StorageUtils } from "../background/storage-utils.js";
 
 export function createReminderModel(mode) {
   const isHourly = mode === MODES.HOURLY;
-  const prefix = isHourly ? "HOURLY" : "RECURRING";
 
   const state = {
     enabled: false,
-    intervalMinutes: isHourly ? DEFAULTS.HOURLY_INTERVAL_MINUTES : DEFAULTS.RECURRING_INTERVAL_MINUTES,
+    intervalMinutes: isHourly
+      ? DEFAULTS.HOURLY_INTERVAL_MINUTES
+      : DEFAULTS.RECURRING_INTERVAL_MINUTES,
     message: DEFAULTS.MESSAGE,
     lastTriggeredAt: null,
     nextDueAt: null,
   };
 
   const keys = {
-    ENABLED: STORAGE_KEYS[`${prefix}_ENABLED`],
-    INTERVAL: STORAGE_KEYS[`${prefix}_INTERVAL_MINUTES`],
-    MESSAGE: STORAGE_KEYS[`${prefix}_MESSAGE`],
-    LAST_TRIGGERED: STORAGE_KEYS[`${prefix}_LAST_TRIGGERED_AT`],
-    NEXT_DUE: STORAGE_KEYS[`${prefix}_NEXT_DUE_AT`],
+    ENABLED: isHourly
+      ? STORAGE_KEYS.HOURLY_ENABLED
+      : STORAGE_KEYS.RECURRING_ENABLED,
+    INTERVAL: isHourly
+      ? STORAGE_KEYS.HOURLY_INTERVAL_MINUTES
+      : STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
+    MESSAGE: isHourly
+      ? STORAGE_KEYS.HOURLY_MESSAGE
+      : STORAGE_KEYS.RECURRING_MESSAGE,
+    LAST_TRIGGERED: isHourly
+      ? STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT
+      : STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT,
+    NEXT_DUE: isHourly
+      ? STORAGE_KEYS.HOURLY_NEXT_DUE_AT
+      : STORAGE_KEYS.RECURRING_NEXT_DUE_AT,
   };
 
   async function load() {
@@ -26,7 +37,12 @@ export function createReminderModel(mode) {
     state.enabled = data[keys.ENABLED] === true;
     state.intervalMinutes = Math.max(
       1,
-      Number(data[keys.INTERVAL] || (isHourly ? DEFAULTS.HOURLY_INTERVAL_MINUTES : DEFAULTS.RECURRING_INTERVAL_MINUTES)),
+      Number(
+        data[keys.INTERVAL] ||
+          (isHourly
+            ? DEFAULTS.HOURLY_INTERVAL_MINUTES
+            : DEFAULTS.RECURRING_INTERVAL_MINUTES),
+      ),
     );
     state.message = data[keys.MESSAGE] || DEFAULTS.MESSAGE;
     state.lastTriggeredAt = data[keys.LAST_TRIGGERED] || null;
@@ -61,5 +77,14 @@ export function createReminderModel(mode) {
     return state.nextDueAt || Date.now() + state.intervalMinutes * 60 * 1000;
   }
 
-  return { state, keys, load, save, update, shouldDebounce, updateTiming, getNextDueAt };
+  return {
+    state,
+    keys,
+    load,
+    save,
+    update,
+    shouldDebounce,
+    updateTiming,
+    getNextDueAt,
+  };
 }

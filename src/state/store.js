@@ -1,14 +1,12 @@
 import { log } from "../helpers.js";
 import { createReminderModel } from "./reminder-model.js";
-import { createSettingsModel } from "./settings-model.js";
-import { createStatsModel } from "./stats-model.js";
+import { createCommonModel } from "./common-model.js";
 
 export function createStoreManager() {
   const models = {
     hourly: createReminderModel("HOURLY"),
     recurring: createReminderModel("RECURRING"),
-    settings: createSettingsModel(),
-    stats: createStatsModel(),
+    common: createCommonModel(),
   };
 
   const observers = new Map();
@@ -20,8 +18,7 @@ export function createStoreManager() {
     await Promise.all([
       models.hourly.load(),
       models.recurring.load(),
-      models.settings.load(),
-      models.stats.load(),
+      models.common.load(),
     ]);
 
     initialized = true;
@@ -36,8 +33,7 @@ export function createStoreManager() {
     await Promise.all([
       models.hourly.save(),
       models.recurring.save(),
-      models.settings.save(),
-      models.stats.save(),
+      models.common.save(),
     ]);
   }
 
@@ -46,11 +42,11 @@ export function createStoreManager() {
   }
 
   function getSettingsState() {
-    return models.settings.state;
+    return models.common.state;
   }
 
   function getStatsState() {
-    return models.stats.state;
+    return models.common.state;
   }
 
   async function updateReminderTiming(mode, now) {
@@ -61,14 +57,14 @@ export function createStoreManager() {
   }
 
   async function updateStats(action) {
-    await models.stats.updateTodayStats(action);
-    notify("stats", { action, stats: models.stats.state });
+    await models.common.updateTodayStats(action);
+    notify("stats", { action, stats: models.common.state });
   }
 
   async function updateSettings(updates) {
-    models.settings.update(updates);
-    await models.settings.save();
-    notify("ui", { state: models.settings.state });
+    models.common.update(updates);
+    await models.common.save();
+    notify("ui", { state: models.common.state });
   }
 
   function subscribe(type, callback) {
@@ -100,13 +96,6 @@ export function createStoreManager() {
 
   function shouldTriggerReminder(mode, now) {
     const model = models[mode.toLowerCase()];
-    const settingsState = models.settings.state;
-
-    if (mode === "recurring") {
-      if (settingsState.recurringPaused) {
-        return false;
-      }
-    }
 
     if (!model.state.enabled) {
       return false;
@@ -144,4 +133,4 @@ export function createStoreManager() {
 const store = createStoreManager();
 
 export default store;
-export { createReminderModel, createSettingsModel, createStatsModel };
+export { createReminderModel, createCommonModel };

@@ -2,7 +2,6 @@ export const ALARM_NAMES = {
   HOURLY: "echoverse-hourly-reminder",
   RECURRING: "echoverse-recurring-reminder",
   SNOOZE: "echoverse-snooze",
-  DAILY_RESET: "echoverse-daily-reset",
 };
 
 export const DEFAULTS = {
@@ -23,7 +22,6 @@ export const MESSAGE_TYPES = {
   SHOW_OVERLAY: "SHOW_OVERLAY",
   HIDE_OVERLAY: "HIDE_OVERLAY",
   OVERLAY_ACTION: "OVERLAY_ACTION",
-  SET_RECURRING_PAUSED: "SET_RECURRING_PAUSED",
   PLAY_SOUND_OFFSCREEN: "PLAY_SOUND_OFFSCREEN",
   START_TIMER: "START_TIMER",
   TOGGLE_SOUND: "TOGGLE_SOUND",
@@ -33,25 +31,23 @@ export const ACTIONS = {
   SKIP: "SKIP",
   SNOOZE: "SNOOZE",
   PAUSE: "PAUSE",
-};
-
-export const SOURCE_TYPES = {
-  STARTUP: "STARTUP",
-  WAKE: "WAKE",
+  SHOWN: "SHOWN",
 };
 
 export const STORAGE_KEYS = {
+  // common
   SOUND_ENABLED: "soundEnabled",
   DAILY_STATS: "dailyStats",
+  // hourly
   HOURLY_ENABLED: "hourlyEnabled",
-  RECURRING_ENABLED: "recurringEnabled",
-  RECURRING_PAUSED: "recurringPaused",
   HOURLY_INTERVAL_MINUTES: "hourlyIntervalMinutes",
-  RECURRING_INTERVAL_MINUTES: "recurringIntervalMinutes",
   HOURLY_MESSAGE: "hourlyMessage",
-  RECURRING_MESSAGE: "recurringMessage",
   HOURLY_LAST_TRIGGERED_AT: "hourlyLastTriggeredAt",
-  RECURRING_LAST_TRIGGERED_AT: "recurringLastTriggeredAt",
   HOURLY_NEXT_DUE_AT: "hourlyNextDueAt",
+  // recurring
+  RECURRING_ENABLED: "recurringEnabled",
+  RECURRING_INTERVAL_MINUTES: "recurringIntervalMinutes",
+  RECURRING_MESSAGE: "recurringMessage",
+  RECURRING_LAST_TRIGGERED_AT: "recurringLastTriggeredAt",
   RECURRING_NEXT_DUE_AT: "recurringNextDueAt",
 };

@@ -237,7 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
       type: MESSAGE_TYPES.START_TIMER,
       hourlyEnabled: elements.hourlyToggle.checked,
       recurringEnabled: elements.recurringToggle.checked,
-      recurringPaused: !elements.recurringToggle.checked,
       recurringIntervalMinutes: intervalValue,
       hourlyIntervalMinutes: DEFAULTS.HOURLY_INTERVAL_MINUTES,
     };

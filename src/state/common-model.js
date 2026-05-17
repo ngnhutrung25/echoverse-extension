@@ -1,23 +1,27 @@
 import { STORAGE_KEYS, ACTIONS } from "../constants.js";
 import { StorageUtils } from "../background/storage-utils.js";
 
-export function createStatsModel() {
+export function createCommonModel() {
   const state = {
+    soundEnabled: true,
     dailyStats: {},
   };
 
   const keys = {
+    SOUND_ENABLED: STORAGE_KEYS.SOUND_ENABLED,
     DAILY_STATS: STORAGE_KEYS.DAILY_STATS,
   };
 
   async function load() {
     const data = await StorageUtils.get(Object.values(keys));
+    state.soundEnabled = data[keys.SOUND_ENABLED] !== false;
     state.dailyStats = data[keys.DAILY_STATS] || {};
     return state;
   }
 
   async function save() {
     await StorageUtils.set({
+      [keys.SOUND_ENABLED]: state.soundEnabled,
       [keys.DAILY_STATS]: state.dailyStats,
     });
   }
@@ -28,28 +32,19 @@ export function createStatsModel() {
 
   function getTodayStats(date = new Date()) {
     const todayKey = date.toISOString().slice(0, 10);
-    return (
-      state.dailyStats[todayKey] || {
-        shown: 0,
-        skipped: 0,
-        snoozed: 0,
-        disabledToday: false,
-      }
-    );
+    return state.dailyStats[todayKey] || { shown: 0 };
   }
 
-  async function updateTodayStats(action, date = new Date()) {
-    const todayKey = date.toISOString().slice(0, 10);
-    const today = getTodayStats(date);
-    const nextToday = { ...today };
+  async function updateTodayStats(action) {
+    const today = new Date();
+    const todayKey = today.toISOString().slice(0, 10);
+    const currentStats = getTodayStats(today);
+    const nextStats = { ...currentStats };
 
-    if (action === ACTIONS.SKIP) nextToday.skipped += 1;
-    if (action === ACTIONS.SNOOZE) nextToday.snoozed += 1;
-    if (action === ACTIONS.PAUSE) nextToday.disabledToday = true;
-    if (action === "SHOWN") nextToday.shown += 1;
+    if (action === ACTIONS.SHOWN) nextStats.shown += 1;
 
-    state.dailyStats[todayKey] = nextToday;
-    return save();
+    state.dailyStats[todayKey] = nextStats;
+    await save();
   }
 
   return { state, keys, load, save, update, getTodayStats, updateTodayStats };
