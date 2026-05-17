@@ -20,12 +20,12 @@ const UI = {
   OVERLAY_ID: "echoverse-overlay",
   // Overlay content
   OVERLAY_KICKER: "echoverse",
-  OVERLAY_TITLE: "Time to rest",
-  OVERLAY_MESSAGE: "Stand up. Stretch. Drink water.",
+  OVERLAY_TITLE: "Nghỉ ngơi thôi",
+  OVERLAY_MESSAGE: "Đứng dậy. Vươn vai. Uống nước. Dạo bộ.",
   // Overlay actions
-  OVERLAY_SKIP: "Yep, nghỉ chút",
-  OVERLAY_SNOOZE: "Snooze 5m",
-  OVERLAY_PAUSE: "Pause",
+  OVERLAY_SKIP: "Yup, nghỉ chút",
+  OVERLAY_SNOOZE: "Nhắc lại sau",
+  OVERLAY_PAUSE: "Dừng nhắc",
   // Debug overlay
   DEBUG_OVERLAY_TITLE: "Debug overlay",
   DEBUG_OVERLAY_MESSAGE: "Overlay always on for UI testing.",
@@ -68,8 +68,8 @@ function createOverlayElement(payload) {
       </div>
       <div class="echoverse-overlay-copy">
         <p class="echoverse-kicker">${UI.OVERLAY_KICKER}</p>
-        <h1>${payload.title || UI.OVERLAY_TITLE}</h1>
-        <p class="echoverse-message">${payload.message || UI.OVERLAY_MESSAGE}</p>
+        <h1>${UI.OVERLAY_TITLE}</h1>
+        <p class="echoverse-message">${UI.OVERLAY_MESSAGE}</p>
         <div class="echoverse-actions">
           <button type="button" data-action=${ACTIONS.SKIP}>${UI.OVERLAY_SKIP}</button>
           <button type="button" data-action=${ACTIONS.SNOOZE}>${UI.OVERLAY_SNOOZE}</button>

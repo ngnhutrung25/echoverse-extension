@@ -35,7 +35,7 @@
 }
 
 #echoverse-overlay .echoverse-overlay-copy {
-  padding: 56px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -61,12 +61,17 @@
 }
 
 #echoverse-overlay .echoverse-message {
-  margin: 14px 0 0;
-  max-width: 30rem;
-  font-size: clamp(16px, 2vw, 19px);
-  font-weight: 400;
-  line-height: 1.6;
-  color: #4b5563;
+  margin: 16px 0 0;
+  max-width: 28rem;
+  padding: 12px 14px;
+  border-left: 3px solid #6b7280;
+  border-radius: 0 16px 16px 0;
+  background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+  font-size: clamp(12px, 1.8vw, 14px);
+  font-weight: 500;
+  line-height: 1.5;
+  color: #374151;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 #echoverse-overlay .echoverse-actions {
@@ -120,9 +125,7 @@
 }
 
 #echoverse-overlay .echoverse-actions button[data-action="SNOOZE"]:hover,
-#echoverse-overlay
-  .echoverse-actions
-  button[data-action="PAUSE"]:hover {
+#echoverse-overlay .echoverse-actions button[data-action="PAUSE"]:hover {
   background: #000000;
   border-color: #000000;
 }
