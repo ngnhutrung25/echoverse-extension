@@ -4,9 +4,6 @@ import {
   STORAGE_KEYS,
   ALARM_NAMES,
 } from "../constants.js";
-
-// Track whether overlay is currently showing
-let overlayActive = false;
 import { log } from "../helpers.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -114,19 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
       : "--";
     elements.recurringNextReminder.textContent = elements.recurringToggle
       .checked
-      ? overlayActive
-        ? "---"
-        : formatCountdown(nextDueState.recurring)
+      ? formatCountdown(nextDueState.recurring)
       : "--";
-  }
-
-  function renderNextRemindersImmediate() {
-    const intervalMinutes =
-      Number(elements.recurringIntervalValue.textContent) || 15;
-    nextDueState.recurring = elements.recurringToggle.checked
-      ? Date.now() + intervalMinutes * 60 * 1000
-      : null;
-    renderNextReminders();
   }
 
   function startCountdownRenderLoop() {
@@ -156,9 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
     syncModeUI();
   }
 
-  // ─── Load settings directly from storage ──────────────────────────────────
+  // ─── Alarm helpers ─────────────────────────────────────────────────────────
 
-  async function getAlarmNextDueAt(alarmName) {
+  function getAlarmNextDueAt(alarmName) {
     return new Promise((resolve) => {
       chrome.alarms.get(alarmName, (alarm) => {
         if (chrome.runtime.lastError || !alarm?.scheduledTime) {
@@ -170,6 +156,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ─── Load settings ─────────────────────────────────────────────────────────
+
   async function loadSettings() {
     clearStatus();
     try {
@@ -177,14 +165,10 @@ document.addEventListener("DOMContentLoaded", () => {
         STORAGE_KEYS.SOUND_ENABLED,
         STORAGE_KEYS.DAILY_STATS,
         STORAGE_KEYS.HOURLY_ENABLED,
-        STORAGE_KEYS.HOURLY_NEXT_DUE_AT,
         STORAGE_KEYS.RECURRING_ENABLED,
         STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
-        STORAGE_KEYS.RECURRING_NEXT_DUE_AT,
-        STORAGE_KEYS.OVERLAY_ACTIVE,
       ];
 
-      // Fetch storage + both alarms in parallel
       const [raw, hourlyAlarmDue, recurringAlarmDue] = await Promise.all([
         chrome.storage.sync.get(keys),
         getAlarmNextDueAt(ALARM_NAMES.HOURLY),
@@ -199,21 +183,12 @@ document.addEventListener("DOMContentLoaded", () => {
         DEFAULTS.RECURRING_INTERVAL_MINUTES;
       const dailyStats = raw[STORAGE_KEYS.DAILY_STATS] || {};
 
-      overlayActive = raw[STORAGE_KEYS.OVERLAY_ACTIVE] === true;
-
       setSoundIconState(soundEnabled);
       setMode(hourlyEnabled, recurringEnabled);
       elements.recurringIntervalValue.textContent = String(intervalMinutes);
 
-      nextDueState.hourly = hourlyEnabled
-        ? hourlyAlarmDue || raw[STORAGE_KEYS.HOURLY_NEXT_DUE_AT] || null
-        : null;
-      // Prefer storage value over alarm scheduled time — storage is updated
-      // immediately on snooze (5 min), while the recurring alarm still fires
-      // on the original interval.
-      nextDueState.recurring = recurringEnabled
-        ? raw[STORAGE_KEYS.RECURRING_NEXT_DUE_AT] || recurringAlarmDue || null
-        : null;
+      nextDueState.hourly = hourlyEnabled ? hourlyAlarmDue : null;
+      nextDueState.recurring = recurringEnabled ? recurringAlarmDue : null;
 
       const todayKey = new Date().toISOString().slice(0, 10);
       const todayStats = dailyStats[todayKey] || { shown: 0 };
@@ -231,16 +206,14 @@ document.addEventListener("DOMContentLoaded", () => {
   async function syncTimerState() {
     const intervalValue = Number(elements.recurringIntervalValue.textContent);
 
-    const payload = {
-      type: MESSAGE_TYPES.START_TIMER,
-      hourlyEnabled: elements.hourlyToggle.checked,
-      recurringEnabled: elements.recurringToggle.checked,
-      recurringIntervalMinutes: intervalValue,
-      hourlyIntervalMinutes: DEFAULTS.HOURLY_INTERVAL_MINUTES,
-    };
-
     try {
-      const response = await chrome.runtime.sendMessage(payload);
+      const response = await chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.START_TIMER,
+        hourlyEnabled: elements.hourlyToggle.checked,
+        recurringEnabled: elements.recurringToggle.checked,
+        recurringIntervalMinutes: intervalValue,
+        hourlyIntervalMinutes: DEFAULTS.HOURLY_INTERVAL_MINUTES,
+      });
 
       if (response?.hourlyNextDueAt !== undefined) {
         nextDueState.hourly = response.hourlyNextDueAt;
@@ -271,7 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const current = Number(elements.recurringIntervalValue.textContent);
     const next = Math.max(5, current + delta);
     elements.recurringIntervalValue.textContent = next;
-    renderNextRemindersImmediate();
     syncTimerState();
   }
 
@@ -279,33 +251,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   elements.hourlyToggle.addEventListener("change", () => {
     syncModeUI();
-    renderNextRemindersImmediate();
     syncTimerState();
   });
   elements.recurringToggle.addEventListener("change", () => {
     syncModeUI();
-    renderNextRemindersImmediate();
     syncTimerState();
   });
   elements.decrementButton.addEventListener("click", () => stepInterval(-5));
   elements.incrementButton.addEventListener("click", () => stepInterval(5));
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
-
-  // Listen for storage changes to update overlay state and snooze countdown in realtime
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync") return;
-
-    if (STORAGE_KEYS.OVERLAY_ACTIVE in changes) {
-      overlayActive = changes[STORAGE_KEYS.OVERLAY_ACTIVE].newValue === true;
-      renderNextReminders();
-    }
-
-    if (STORAGE_KEYS.RECURRING_NEXT_DUE_AT in changes) {
-      const newVal = changes[STORAGE_KEYS.RECURRING_NEXT_DUE_AT].newValue;
-      nextDueState.recurring = newVal || null;
-      renderNextReminders();
-    }
-  });
 
   loadSettings();
 });

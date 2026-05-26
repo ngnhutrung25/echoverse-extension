@@ -66,26 +66,16 @@ export function getRandomLandscapeImage() {
  * @returns {Promise<string>} Image data URL or original URL
  */
 export async function getRandomPreloadedImage() {
-  const triedUrls = new Set();
   const maxAttempts = 2;
 
-  while (triedUrls.size < maxAttempts) {
+  for (let i = 0; i < maxAttempts; i++) {
     const imageUrl = getRandomLandscapeImage();
-    if (triedUrls.has(imageUrl)) {
-      continue;
-    }
-    triedUrls.add(imageUrl);
-
     try {
       const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const blob = await response.blob();
-      if (!blob.size) {
-        throw new Error("Empty image blob");
-      }
+      if (!blob.size) throw new Error("Empty image blob");
 
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -97,7 +87,7 @@ export async function getRandomPreloadedImage() {
       log(`Loaded image: ${imageUrl}`);
       return dataUrl;
     } catch (error) {
-      log(`Failed to load image: ${imageUrl}`, error);
+      log(`Failed to load image: ${imageUrl} — ${error.message}`);
     }
   }
 

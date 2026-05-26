@@ -12,10 +12,9 @@ export function normalizeInterval(data) {
       data.recurringIntervalMinutes ||
       DEFAULTS.RECURRING_INTERVAL_MINUTES,
   );
-  if (Number.isFinite(value)) {
-    return Math.max(5, Math.round(value / 5) * 5);
-  }
-  return DEFAULTS.RECURRING_INTERVAL_MINUTES;
+  return Number.isFinite(value)
+    ? Math.max(5, value)
+    : DEFAULTS.RECURRING_INTERVAL_MINUTES;
 }
 
 export function sendToTabs(message) {

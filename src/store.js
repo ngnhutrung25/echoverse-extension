@@ -20,31 +20,16 @@ async function storageSet(data) {
   }
 }
 
-// ─── Keys grouped by concern ──────────────────────────────────────────────────
+// ─── Keys ─────────────────────────────────────────────────────────────────────
 
-const HOURLY_KEYS = [
+const ALL_KEYS = [
   STORAGE_KEYS.HOURLY_ENABLED,
   STORAGE_KEYS.HOURLY_INTERVAL_MINUTES,
-  STORAGE_KEYS.HOURLY_MESSAGE,
-  STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT,
-  STORAGE_KEYS.HOURLY_NEXT_DUE_AT,
-];
-
-const RECURRING_KEYS = [
   STORAGE_KEYS.RECURRING_ENABLED,
   STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
-  STORAGE_KEYS.RECURRING_MESSAGE,
-  STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT,
-  STORAGE_KEYS.RECURRING_NEXT_DUE_AT,
-];
-
-const COMMON_KEYS = [
   STORAGE_KEYS.SOUND_ENABLED,
   STORAGE_KEYS.DAILY_STATS,
-  STORAGE_KEYS.OVERLAY_ACTIVE,
 ];
-
-const ALL_KEYS = [...HOURLY_KEYS, ...RECURRING_KEYS, ...COMMON_KEYS];
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
 
@@ -58,9 +43,6 @@ function parseHourly(data) {
           DEFAULTS.HOURLY_INTERVAL_MINUTES,
       ),
     ),
-    message: data[STORAGE_KEYS.HOURLY_MESSAGE] || DEFAULTS.MESSAGE,
-    lastTriggeredAt: data[STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT] || null,
-    nextDueAt: data[STORAGE_KEYS.HOURLY_NEXT_DUE_AT] || null,
   };
 }
 
@@ -74,9 +56,6 @@ function parseRecurring(data) {
           DEFAULTS.RECURRING_INTERVAL_MINUTES,
       ),
     ),
-    message: data[STORAGE_KEYS.RECURRING_MESSAGE] || DEFAULTS.MESSAGE,
-    lastTriggeredAt: data[STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT] || null,
-    nextDueAt: data[STORAGE_KEYS.RECURRING_NEXT_DUE_AT] || null,
   };
 }
 
@@ -84,29 +63,12 @@ function parseCommon(data) {
   return {
     soundEnabled: data[STORAGE_KEYS.SOUND_ENABLED] !== false,
     dailyStats: data[STORAGE_KEYS.DAILY_STATS] || {},
-    overlayActive: data[STORAGE_KEYS.OVERLAY_ACTIVE] === true,
   };
 }
 
 // ─── In-memory cache (background service worker lifetime) ─────────────────────
 
 let _cache = null;
-
-function isCached() {
-  return _cache !== null;
-}
-
-function getCache() {
-  return _cache;
-}
-
-function setCache(data) {
-  _cache = data;
-}
-
-function patchCache(partial) {
-  if (_cache) Object.assign(_cache, partial);
-}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -128,8 +90,8 @@ async function loadAll() {
  * Get full state. Loads from storage if cache is empty.
  */
 async function getData() {
-  if (!isCached()) await loadAll();
-  return getCache();
+  if (!_cache) await loadAll();
+  return _cache;
 }
 
 /**
@@ -139,7 +101,6 @@ async function getData() {
 async function setData(patch) {
   await storageSet(patch);
 
-  // Keep cache in sync without a full reload
   if (_cache) {
     const raw = { ..._rawFromCache(), ...patch };
     _cache = {
@@ -157,17 +118,10 @@ function _rawFromCache() {
   return {
     [STORAGE_KEYS.HOURLY_ENABLED]: hourly.enabled,
     [STORAGE_KEYS.HOURLY_INTERVAL_MINUTES]: hourly.intervalMinutes,
-    [STORAGE_KEYS.HOURLY_MESSAGE]: hourly.message,
-    [STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT]: hourly.lastTriggeredAt,
-    [STORAGE_KEYS.HOURLY_NEXT_DUE_AT]: hourly.nextDueAt,
     [STORAGE_KEYS.RECURRING_ENABLED]: recurring.enabled,
     [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: recurring.intervalMinutes,
-    [STORAGE_KEYS.RECURRING_MESSAGE]: recurring.message,
-    [STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: recurring.lastTriggeredAt,
-    [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: recurring.nextDueAt,
     [STORAGE_KEYS.SOUND_ENABLED]: common.soundEnabled,
     [STORAGE_KEYS.DAILY_STATS]: common.dailyStats,
-    [STORAGE_KEYS.OVERLAY_ACTIVE]: common.overlayActive,
   };
 }
 
@@ -178,23 +132,7 @@ function invalidate() {
   _cache = null;
 }
 
-// ─── Convenience helpers used by background/index.js ─────────────────────────
-
-async function updateReminderTiming(mode, now) {
-  const data = await getData();
-  const state = data[mode];
-  const nextDueAt = now + state.intervalMinutes * 60 * 1000;
-
-  const isHourly = mode === "hourly";
-  await setData({
-    [isHourly
-      ? STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT
-      : STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: now,
-    [isHourly
-      ? STORAGE_KEYS.HOURLY_NEXT_DUE_AT
-      : STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: nextDueAt,
-  });
-}
+// ─── Convenience helpers ──────────────────────────────────────────────────────
 
 async function updateTodayStats(action) {
   const data = await getData();
@@ -211,26 +149,4 @@ async function updateTodayStats(action) {
   });
 }
 
-async function updateSettings(patch) {
-  const mapped = {};
-  if (patch.soundEnabled !== undefined)
-    mapped[STORAGE_KEYS.SOUND_ENABLED] = patch.soundEnabled;
-  await setData(mapped);
-}
-
-async function shouldDebounce(mode, now, debounceMs = 90000) {
-  const data = await getData();
-  const last = data[mode].lastTriggeredAt;
-  return last && now - last < debounceMs;
-}
-
-export {
-  loadAll,
-  getData,
-  setData,
-  invalidate,
-  updateReminderTiming,
-  updateTodayStats,
-  updateSettings,
-  shouldDebounce,
-};
+export { loadAll, getData, setData, invalidate, updateTodayStats };

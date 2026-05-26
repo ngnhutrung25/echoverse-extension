@@ -2,7 +2,6 @@ import {
   MESSAGE_TYPES,
   ALARM_NAMES,
   DEFAULTS,
-  MODES,
   ACTIONS,
   STORAGE_KEYS,
 } from "../constants.js";
@@ -15,10 +14,7 @@ import {
   getData,
   loadAll,
   setData,
-  updateReminderTiming,
   updateTodayStats,
-  updateSettings,
-  shouldDebounce,
   invalidate,
 } from "../store.js";
 
@@ -36,21 +32,17 @@ function getNextTopOfHour(now = Date.now()) {
   return date.getTime();
 }
 
-async function ensureHourlyTopOfHourAlarm() {
-  const nextDueAt = getNextTopOfHour();
+async function ensureHourlyAlarm() {
   await chrome.alarms.clear(ALARM_NAMES.HOURLY);
   await chrome.alarms.create(ALARM_NAMES.HOURLY, {
-    when: nextDueAt,
+    when: getNextTopOfHour(),
     periodInMinutes: DEFAULTS.HOURLY_INTERVAL_MINUTES,
   });
-  return nextDueAt;
 }
 
-async function ensureReminderAlarm(mode, intervalMinutes) {
-  const alarmName =
-    mode === MODES.HOURLY ? ALARM_NAMES.HOURLY : ALARM_NAMES.RECURRING;
-  await chrome.alarms.clear(alarmName);
-  await chrome.alarms.create(alarmName, {
+async function ensureRecurringAlarm(intervalMinutes) {
+  await chrome.alarms.clear(ALARM_NAMES.RECURRING);
+  await chrome.alarms.create(ALARM_NAMES.RECURRING, {
     delayInMinutes: intervalMinutes,
     periodInMinutes: intervalMinutes,
   });
@@ -60,10 +52,7 @@ async function ensureReminderAlarm(mode, intervalMinutes) {
 // CORE REMINDER LOGIC
 // ========================================
 
-async function triggerReminder(mode, options = {}) {
-  const { updateTiming = true } = options;
-  const now = Date.now();
-
+async function triggerReminder(mode) {
   const data = await getData();
   const reminderState = data[mode];
 
@@ -72,44 +61,18 @@ async function triggerReminder(mode, options = {}) {
     return;
   }
 
-  if (await shouldDebounce(mode, now)) {
-    log(`Reminder skipped by debounce.`);
-    return;
-  }
-
-  const isHourly = mode === MODES.HOURLY;
-
-  if (updateTiming) {
-    await updateReminderTiming(mode, now);
-  } else {
-    // Snooze fired: update lastTriggeredAt and reset nextDueAt to start a fresh cycle
-    const data = await getData();
-    const intervalMinutes = data[mode].intervalMinutes;
-    const nextDueAt = now + intervalMinutes * 60 * 1000;
-    await setData({
-      [isHourly
-        ? STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT
-        : STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: now,
-      [isHourly
-        ? STORAGE_KEYS.HOURLY_NEXT_DUE_AT
-        : STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: nextDueAt,
-    });
-  }
-
   await updateTodayStats(ACTIONS.SHOWN);
+  sendNotification(DEFAULTS.MESSAGE);
+  await playSound(mode === "recurring" ? "beep" : "bell");
 
-  sendNotification(reminderState.message);
-  await playSound(mode === MODES.RECURRING ? "beep" : "bell");
-
-  if (mode === MODES.RECURRING) {
+  if (mode === "recurring") {
     const imageUrl = await getRandomPreloadedImage();
-    await setData({ [STORAGE_KEYS.OVERLAY_ACTIVE]: true });
     sendToTabs({
       type: MESSAGE_TYPES.SHOW_OVERLAY,
       payload: {
-        id: String(now),
+        id: String(Date.now()),
         title: "Time to rest",
-        message: reminderState.message,
+        message: DEFAULTS.MESSAGE,
         imageUrl,
       },
     });
@@ -123,22 +86,18 @@ async function triggerReminder(mode, options = {}) {
 // ========================================
 
 async function rehydrateScheduler() {
-  const data = await loadAll(); // always reload fresh from storage
+  const data = await loadAll();
 
-  const hourlyEnabled = data.hourly.enabled === true;
-  const recurringEnabled = data.recurring.enabled === true;
-  const recurringIntervalMinutes = normalizeInterval(data.recurring);
-
-  if (hourlyEnabled) {
-    await ensureHourlyTopOfHourAlarm();
+  if (data.hourly.enabled) {
+    await ensureHourlyAlarm();
     log(`HOURLY scheduler restored.`);
   } else {
     await chrome.alarms.clear(ALARM_NAMES.HOURLY);
     log(`HOURLY scheduler remains off.`);
   }
 
-  if (recurringEnabled) {
-    await ensureReminderAlarm(MODES.RECURRING, recurringIntervalMinutes);
+  if (data.recurring.enabled) {
+    await ensureRecurringAlarm(normalizeInterval(data.recurring));
     log(`RECURRING scheduler restored.`);
   } else {
     await chrome.alarms.clear(ALARM_NAMES.RECURRING);
@@ -151,35 +110,12 @@ async function rehydrateScheduler() {
 // ========================================
 
 async function handleOverlayActionMessage(message, sendResponse) {
-  log(`[overlay] action received: ${message.type}`);
+  log(`[overlay] action received: ${message.action}`);
 
   await updateTodayStats(message.action);
 
-  if (message.action === ACTIONS.SNOOZE) {
-    const snoozeMs = DEFAULTS.SNOOZE_DELAY_MINUTES * 60 * 1000;
-    const nextDueAt = Date.now() + snoozeMs;
-    await chrome.alarms.clear(ALARM_NAMES.SNOOZE);
-    await chrome.alarms.create(ALARM_NAMES.SNOOZE, {
-      delayInMinutes: DEFAULTS.SNOOZE_DELAY_MINUTES,
-    });
-    await setData({
-      [STORAGE_KEYS.OVERLAY_ACTIVE]: false,
-      [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: nextDueAt,
-    });
-    log(`Snoozed for ${DEFAULTS.SNOOZE_DELAY_MINUTES} minutes.`);
-    sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
-    sendResponse({ ok: true });
-    return true;
-  }
-
   if (message.action === ACTIONS.PAUSE) {
-    await setData({
-      [STORAGE_KEYS.OVERLAY_ACTIVE]: false,
-      [STORAGE_KEYS.RECURRING_ENABLED]: false,
-      [STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: null,
-      [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: null,
-    });
-    await chrome.alarms.clear(ALARM_NAMES.SNOOZE);
+    await setData({ [STORAGE_KEYS.RECURRING_ENABLED]: false });
     await chrome.alarms.clear(ALARM_NAMES.RECURRING);
     sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
     sendResponse({ ok: true });
@@ -187,15 +123,6 @@ async function handleOverlayActionMessage(message, sendResponse) {
   }
 
   // SKIP or any other action
-  // Recalculate nextDueAt from the actual recurring alarm so popup shows correct countdown
-  const recurringAlarm = await chrome.alarms.get(ALARM_NAMES.RECURRING);
-  const nextDueAt = recurringAlarm?.scheduledTime ?? null;
-  await setData({
-    [STORAGE_KEYS.OVERLAY_ACTIVE]: false,
-    ...(nextDueAt !== null && {
-      [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: nextDueAt,
-    }),
-  });
   sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
   sendResponse({ ok: true });
   return true;
@@ -203,91 +130,56 @@ async function handleOverlayActionMessage(message, sendResponse) {
 
 async function handleStartTimerMessage(message, sendResponse) {
   const data = await getData();
-  const now = Date.now();
   const enabledModes = [];
   const patch = {};
 
   // ── Hourly ──
   if (message.hourlyEnabled) {
-    const intervalMinutes = Math.max(
-      1,
-      Number(
-        message.hourlyIntervalMinutes ||
-          data.hourly.intervalMinutes ||
-          DEFAULTS.HOURLY_INTERVAL_MINUTES,
-      ),
-    );
-
-    const shouldRefresh =
-      data.hourly.enabled !== true ||
-      data.hourly.nextDueAt == null ||
-      data.hourly.intervalMinutes !== intervalMinutes;
-
-    const nextDueAt = shouldRefresh
-      ? await ensureHourlyTopOfHourAlarm()
-      : data.hourly.nextDueAt;
-
-    Object.assign(patch, {
-      [STORAGE_KEYS.HOURLY_ENABLED]: true,
-      [STORAGE_KEYS.HOURLY_INTERVAL_MINUTES]: intervalMinutes,
-      [STORAGE_KEYS.HOURLY_MESSAGE]: DEFAULTS.MESSAGE,
-      [STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT]: shouldRefresh
-        ? null
-        : data.hourly.lastTriggeredAt,
-      [STORAGE_KEYS.HOURLY_NEXT_DUE_AT]: nextDueAt,
-    });
-
+    if (!data.hourly.enabled) {
+      await ensureHourlyAlarm();
+    }
+    Object.assign(patch, { [STORAGE_KEYS.HOURLY_ENABLED]: true });
     enabledModes.push("theo giờ");
   } else {
-    Object.assign(patch, {
-      [STORAGE_KEYS.HOURLY_ENABLED]: false,
-      [STORAGE_KEYS.HOURLY_LAST_TRIGGERED_AT]: null,
-      [STORAGE_KEYS.HOURLY_NEXT_DUE_AT]: null,
-    });
+    Object.assign(patch, { [STORAGE_KEYS.HOURLY_ENABLED]: false });
     await chrome.alarms.clear(ALARM_NAMES.HOURLY);
   }
 
   // ── Recurring ──
   if (message.recurringEnabled) {
     const intervalMinutes = Math.max(
-      1,
+      5,
       Number(
         message.recurringIntervalMinutes ||
           data.recurring.intervalMinutes ||
           DEFAULTS.RECURRING_INTERVAL_MINUTES,
       ),
     );
-    const nextDueAt = now + intervalMinutes * 60 * 1000;
-
     Object.assign(patch, {
       [STORAGE_KEYS.RECURRING_ENABLED]: true,
       [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: intervalMinutes,
-      [STORAGE_KEYS.RECURRING_MESSAGE]: DEFAULTS.MESSAGE,
-      [STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: null,
-      [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: nextDueAt,
     });
-
-    await ensureReminderAlarm(MODES.RECURRING, intervalMinutes);
+    await ensureRecurringAlarm(intervalMinutes);
     enabledModes.push("lặp lại");
   } else {
-    Object.assign(patch, {
-      [STORAGE_KEYS.RECURRING_ENABLED]: false,
-      [STORAGE_KEYS.RECURRING_LAST_TRIGGERED_AT]: null,
-      [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: null,
-    });
+    Object.assign(patch, { [STORAGE_KEYS.RECURRING_ENABLED]: false });
     await chrome.alarms.clear(ALARM_NAMES.RECURRING);
   }
 
   await setData(patch);
 
-  const updated = await getData();
+  const [hourlyAlarm, recurringAlarm] = await Promise.all([
+    chrome.alarms.get(ALARM_NAMES.HOURLY),
+    chrome.alarms.get(ALARM_NAMES.RECURRING),
+  ]);
+
   sendResponse({
     status:
       enabledModes.length > 0
         ? `Echoverse đã bật: ${enabledModes.join(" + ")}.`
         : "Echoverse đã tắt hết chuông báo.",
-    hourlyNextDueAt: updated.hourly.nextDueAt,
-    recurringNextDueAt: updated.recurring.nextDueAt,
+    hourlyNextDueAt: hourlyAlarm?.scheduledTime ?? null,
+    recurringNextDueAt: recurringAlarm?.scheduledTime ?? null,
   });
   return true;
 }
@@ -296,7 +188,7 @@ async function handleToggleSoundMessage(sendResponse) {
   try {
     const data = await getData();
     const newSoundEnabled = !data.common.soundEnabled;
-    await updateSettings({ soundEnabled: newSoundEnabled });
+    await setData({ [STORAGE_KEYS.SOUND_ENABLED]: newSoundEnabled });
     log(`Sound ${newSoundEnabled ? "enabled" : "disabled"}.`);
     sendResponse({ soundEnabled: newSoundEnabled });
   } catch (error) {
@@ -313,13 +205,10 @@ async function handleToggleSoundMessage(sendResponse) {
 chrome.alarms.onAlarm.addListener((alarm) => {
   switch (alarm.name) {
     case ALARM_NAMES.HOURLY:
-      triggerReminder(MODES.HOURLY);
+      triggerReminder("hourly");
       break;
     case ALARM_NAMES.RECURRING:
-      triggerReminder(MODES.RECURRING);
-      break;
-    case ALARM_NAMES.SNOOZE:
-      triggerReminder(MODES.RECURRING, { updateTiming: false });
+      triggerReminder("recurring");
       break;
   }
 });
@@ -348,7 +237,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // LIFECYCLE LISTENERS
 // ========================================
 
-// Rebuild alarms on browser startup
 chrome.runtime.onStartup.addListener(async () => {
   if (startupHandling) return;
   startupHandling = true;
@@ -363,17 +251,14 @@ chrome.runtime.onStartup.addListener(async () => {
   }
 });
 
-// Rebuild alarms on fresh install or update
 chrome.runtime.onInstalled.addListener(async (details) => {
   log(`Extension installed/updated: ${details.reason}`);
   await rehydrateScheduler();
 });
 
-// Restore alarms on wake; clear on lock/sleep
 let wasLocked = false;
 
 chrome.idle.onStateChanged.addListener(async (state) => {
-  // Handle lock/sleep state
   if (state === "locked") {
     wasLocked = true;
     log("System locked — clearing alarms...");
@@ -381,14 +266,8 @@ chrome.idle.onStateChanged.addListener(async (state) => {
       await Promise.all([
         chrome.alarms.clear(ALARM_NAMES.HOURLY),
         chrome.alarms.clear(ALARM_NAMES.RECURRING),
-        chrome.alarms.clear(ALARM_NAMES.SNOOZE),
       ]);
-      // Wipe nextDueAt so rehydrate recalculates correctly on wake
-      await setData({
-        [STORAGE_KEYS.HOURLY_NEXT_DUE_AT]: null,
-        [STORAGE_KEYS.RECURRING_NEXT_DUE_AT]: null,
-      });
-      invalidate(); // force fresh load on next getData()
+      invalidate();
       log("Alarms cleared on lock.");
     } catch (error) {
       log(`Error clearing alarms on lock: ${error.message}`);
@@ -407,12 +286,6 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     return;
   }
 
-  // Handle idle state
-  if (state === "idle") {
-    log("System idle.");
-  }
-
-  if (state === "active") {
-    log("System active after idle.");
-  }
+  if (state === "idle") log("System idle.");
+  if (state === "active") log("System active after idle.");
 });
