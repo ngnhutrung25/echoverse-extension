@@ -111,7 +111,9 @@ async function setData(patch) {
   }
 }
 
-/** Reconstruct a flat raw object from current cache (for re-parsing after patch) */
+/**
+ * Reconstruct a flat raw object from current cache (for re-parsing after patch)
+ */
 function _rawFromCache() {
   if (!_cache) return {};
   const { hourly, recurring, common } = _cache;

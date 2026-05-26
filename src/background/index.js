@@ -4,6 +4,8 @@ import {
   DEFAULTS,
   ACTIONS,
   STORAGE_KEYS,
+  MODES,
+  SOUNDS,
 } from "../constants.js";
 import { log } from "../helpers.js";
 import { getRandomPreloadedImage } from "./image.js";
@@ -18,12 +20,7 @@ import {
   invalidate,
 } from "../store.js";
 
-// ─── Guard against concurrent startup runs ────────────────────────────────────
-let startupHandling = false;
-
-// ========================================
-// ALARM SCHEDULING
-// ========================================
+// ─── ALARM SCHEDULING ────────────────────────────────────────────────────────
 
 function getNextTopOfHour(now = Date.now()) {
   const date = new Date(now);
@@ -48,9 +45,7 @@ async function ensureRecurringAlarm(intervalMinutes) {
   });
 }
 
-// ========================================
-// CORE REMINDER LOGIC
-// ========================================
+// ─── CORE REMINDER LOGIC ─────────────────────────────────────────────────────
 
 async function triggerReminder(mode) {
   const data = await getData();
@@ -61,29 +56,32 @@ async function triggerReminder(mode) {
     return;
   }
 
-  await updateTodayStats(ACTIONS.SHOWN);
-  sendNotification(DEFAULTS.MESSAGE);
-  await playSound(mode === "recurring" ? "beep" : "bell");
+  const now = new Date();
+  const hours = now.getHours();
 
-  if (mode === "recurring") {
+  const message =
+    mode === MODES.HOURLY
+      ? DEFAULTS.HOURLY_MESSAGE.replace("{hour}", hours)
+      : DEFAULTS.RECURRING_MESSAGE;
+
+  await updateTodayStats(ACTIONS.SHOWN);
+
+  sendNotification(message);
+
+  await playSound(mode === MODES.RECURRING ? SOUNDS.BEEP : SOUNDS.BELL);
+
+  if (mode === MODES.RECURRING) {
     const imageUrl = await getRandomPreloadedImage();
     sendToTabs({
       type: MESSAGE_TYPES.SHOW_OVERLAY,
-      payload: {
-        id: String(Date.now()),
-        title: "Time to rest",
-        message: DEFAULTS.MESSAGE,
-        imageUrl,
-      },
+      payload: { imageUrl },
     });
   }
 
   log(`Reminder fired (${mode}).`);
 }
 
-// ========================================
-// SYSTEM INITIALIZATION & REHYDRATION
-// ========================================
+// ─── SYSTEM INITIALIZATION & REHYDRATION ─────────────────────────────────────
 
 async function rehydrateScheduler() {
   const data = await loadAll();
@@ -105,14 +103,10 @@ async function rehydrateScheduler() {
   }
 }
 
-// ========================================
-// MESSAGE HANDLERS
-// ========================================
+// ─── MESSAGE HANDLERS ────────────────────────────────────────────────────────
 
 async function handleOverlayActionMessage(message, sendResponse) {
   log(`[overlay] action received: ${message.action}`);
-
-  await updateTodayStats(message.action);
 
   if (message.action === ACTIONS.PAUSE) {
     await setData({ [STORAGE_KEYS.RECURRING_ENABLED]: false });
@@ -122,10 +116,11 @@ async function handleOverlayActionMessage(message, sendResponse) {
     return true;
   }
 
-  // SKIP or any other action
-  sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
-  sendResponse({ ok: true });
-  return true;
+  if (message.action === ACTIONS.SKIP) {
+    sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
+    sendResponse({ ok: true });
+    return true;
+  }
 }
 
 async function handleStartTimerMessage(message, sendResponse) {
@@ -147,14 +142,7 @@ async function handleStartTimerMessage(message, sendResponse) {
 
   // ── Recurring ──
   if (message.recurringEnabled) {
-    const intervalMinutes = Math.max(
-      5,
-      Number(
-        message.recurringIntervalMinutes ||
-          data.recurring.intervalMinutes ||
-          DEFAULTS.RECURRING_INTERVAL_MINUTES,
-      ),
-    );
+    const intervalMinutes = normalizeInterval(message);
     Object.assign(patch, {
       [STORAGE_KEYS.RECURRING_ENABLED]: true,
       [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: intervalMinutes,
@@ -198,24 +186,20 @@ async function handleToggleSoundMessage(sendResponse) {
   return true;
 }
 
-// ========================================
-// ALARM LISTENERS
-// ========================================
+// ─── ALARM LISTENERS ─────────────────────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   switch (alarm.name) {
     case ALARM_NAMES.HOURLY:
-      triggerReminder("hourly");
+      triggerReminder(MODES.HOURLY);
       break;
     case ALARM_NAMES.RECURRING:
-      triggerReminder("recurring");
+      triggerReminder(MODES.RECURRING);
       break;
   }
 });
 
-// ========================================
-// MESSAGE LISTENERS
-// ========================================
+// ─── MESSAGE LISTENERS ───────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === MESSAGE_TYPES.OVERLAY_ACTION) {
@@ -233,9 +217,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-// ========================================
-// LIFECYCLE LISTENERS
-// ========================================
+// ─── LIFECYCLE LISTENERS ─────────────────────────────────────────────────────
+
+// Guard against concurrent startup runs
+let startupHandling = false;
 
 chrome.runtime.onStartup.addListener(async () => {
   if (startupHandling) return;

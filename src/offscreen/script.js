@@ -1,9 +1,9 @@
-import { MESSAGE_TYPES } from "../constants.js";
+import { MESSAGE_TYPES, SOUNDS } from "../constants.js";
 import { log } from "../helpers.js";
 
 const SOUND_SOURCES = {
-  bell: "../../assets/bell.mp3",
-  beep: "../../assets/beep.mp3",
+  [SOUNDS.BELL]: "../../assets/bell.mp3",
+  [SOUNDS.BEEP]: "../../assets/beep.mp3",
 };
 
 async function playSound(soundName) {
@@ -13,7 +13,7 @@ async function playSound(soundName) {
     return;
   }
 
-  const src = SOUND_SOURCES[soundName] || SOUND_SOURCES.bell;
+  const src = SOUND_SOURCES[soundName] || SOUND_SOURCES[SOUNDS.BELL];
   if (audio.getAttribute("src") !== src) {
     audio.setAttribute("src", src);
   }

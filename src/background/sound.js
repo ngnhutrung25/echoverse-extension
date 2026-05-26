@@ -1,4 +1,4 @@
-import { MESSAGE_TYPES } from "../constants.js";
+import { MESSAGE_TYPES, SOUNDS } from "../constants.js";
 import { getData } from "../store.js";
 import { log } from "../helpers.js";
 
@@ -32,7 +32,7 @@ export async function setupOffscreenDocument(path) {
   }
 }
 
-export async function playSound(soundName = "bell") {
+export async function playSound(soundName = SOUNDS.BELL) {
   try {
     const data = await getData();
     const soundEnabled = data.common.soundEnabled !== false;

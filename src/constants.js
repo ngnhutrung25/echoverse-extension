@@ -6,13 +6,19 @@ export const ALARM_NAMES = {
 export const DEFAULTS = {
   HOURLY_INTERVAL_MINUTES: 60,
   RECURRING_INTERVAL_MINUTES: 15,
-  MESSAGE: "Drink water",
+  RECURRING_MESSAGE: "Nghỉ ngơi thôi",
+  HOURLY_MESSAGE: "Bây giờ là {hour} giờ",
   STATUS_TIMEOUT_MS: 1500,
 };
 
 export const MODES = {
   HOURLY: "hourly",
   RECURRING: "recurring",
+};
+
+export const SOUNDS = {
+  BEEP: "beep",
+  BELL: "bell",
 };
 
 export const MESSAGE_TYPES = {
