@@ -38,6 +38,7 @@ export const STORAGE_KEYS = {
   // common
   SOUND_ENABLED: "soundEnabled",
   DAILY_STATS: "dailyStats",
+  OVERLAY_ACTIVE: "overlayActive",
   // hourly
   HOURLY_ENABLED: "hourlyEnabled",
   HOURLY_INTERVAL_MINUTES: "hourlyIntervalMinutes",

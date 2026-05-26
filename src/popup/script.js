@@ -1,6 +1,13 @@
-import { MESSAGE_TYPES, DEFAULTS } from "../constants.js";
+import {
+  MESSAGE_TYPES,
+  DEFAULTS,
+  STORAGE_KEYS,
+  ALARM_NAMES,
+} from "../constants.js";
+
+// Track whether overlay is currently showing
+let overlayActive = false;
 import { log } from "../helpers.js";
-import store from "../state/store.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
@@ -8,9 +15,6 @@ document.addEventListener("DOMContentLoaded", () => {
     recurringToggle: document.getElementById("recurring-toggle"),
     hourlySettings: document.getElementById("hourly-settings"),
     recurringSettings: document.getElementById("recurring-settings"),
-    recurringIntervalControls: document.getElementById(
-      "recurring-interval-controls",
-    ),
     statusBox: document.getElementById("status-box"),
     statusDiv: document.getElementById("status"),
     todayCount: document.getElementById("today-count"),
@@ -21,45 +25,31 @@ document.addEventListener("DOMContentLoaded", () => {
     incrementButton: document.getElementById("increment-button"),
     soundToggleButton: document.getElementById("sound-toggle"),
   };
-  let renderTimer = null;
-  const nextDueState = {
-    hourly: null,
-    recurring: null,
-  };
 
-  /*
-   * Status functions
-   */
+  const nextDueState = { hourly: null, recurring: null };
+  let renderTimer = null;
   let statusTimer = null;
   let statusHideTimer = null;
 
+  // ─── Status ────────────────────────────────────────────────────────────────
+
   function updateStatus(message, isError = false) {
-    if (statusTimer) {
-      clearTimeout(statusTimer);
-    }
-    if (statusHideTimer) {
-      clearTimeout(statusHideTimer);
-      statusHideTimer = null;
-    }
+    clearTimeout(statusTimer);
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
 
     elements.statusBox.classList.remove("hidden");
     elements.statusBox.classList.add("visible");
     elements.statusDiv.dataset.error = String(isError);
     elements.statusDiv.textContent = message;
 
-    statusTimer = setTimeout(() => {
-      clearStatus();
-    }, DEFAULTS.STATUS_TIMEOUT_MS);
+    statusTimer = setTimeout(clearStatus, DEFAULTS.STATUS_TIMEOUT_MS);
   }
 
   function clearStatus() {
-    if (statusTimer) {
-      clearTimeout(statusTimer);
-      statusTimer = null;
-    }
-    if (statusHideTimer) {
-      clearTimeout(statusHideTimer);
-    }
+    clearTimeout(statusTimer);
+    statusTimer = null;
+    clearTimeout(statusHideTimer);
 
     elements.statusBox.classList.remove("visible");
     statusHideTimer = setTimeout(() => {
@@ -69,9 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 260);
   }
 
-  /*
-   * Sound toggle functions
-   */
+  // ─── Sound icon ────────────────────────────────────────────────────────────
+
   function setSoundIconState(soundEnabled) {
     elements.soundToggleButton
       .querySelector("#sound-toggle-bell")
@@ -88,45 +77,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function handleSoundToggleClick() {
     const nextEnabled = !getSoundIconState();
-
     try {
       const response = await chrome.runtime.sendMessage({
         type: MESSAGE_TYPES.TOGGLE_SOUND,
       });
-
-      if (response && typeof response.soundEnabled === "boolean") {
-        setSoundIconState(response.soundEnabled);
-      } else {
-        setSoundIconState(nextEnabled);
-      }
+      setSoundIconState(
+        response && typeof response.soundEnabled === "boolean"
+          ? response.soundEnabled
+          : nextEnabled,
+      );
     } catch (error) {
       log("Error toggling sound:", error);
       updateStatus("Failed to toggle sound", true);
     }
   }
 
-  function formatCountdown(nextDueAt) {
-    if (!nextDueAt) {
-      return "--";
-    }
+  // ─── Countdown display ─────────────────────────────────────────────────────
 
+  function formatCountdown(nextDueAt) {
+    if (!nextDueAt) return "--";
     const remainingMs = nextDueAt - Date.now();
-    if (remainingMs <= 0) {
-      return "Sắp tới";
-    }
+    if (remainingMs <= 0) return "Sắp tới";
 
     const totalMinutes = Math.ceil(remainingMs / 60000);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
-    if (hours <= 0) {
-      return `Còn ${totalMinutes} phút`;
-    }
-
-    if (minutes <= 0) {
-      return `Còn ${hours} giờ`;
-    }
-
+    if (hours <= 0) return `Còn ${totalMinutes} phút`;
+    if (minutes <= 0) return `Còn ${hours} giờ`;
     return `Còn ${hours} giờ ${minutes} phút`;
   }
 
@@ -136,40 +114,28 @@ document.addEventListener("DOMContentLoaded", () => {
       : "--";
     elements.recurringNextReminder.textContent = elements.recurringToggle
       .checked
-      ? formatCountdown(nextDueState.recurring)
+      ? overlayActive
+        ? "---"
+        : formatCountdown(nextDueState.recurring)
       : "--";
   }
 
-  async function getAlarmNextDueAt(alarmName) {
-    return new Promise((resolve) => {
-      chrome.alarms.get(alarmName, (alarm) => {
-        if (chrome.runtime.lastError || !alarm?.scheduledTime) {
-          resolve(null);
-          return;
-        }
-
-        resolve(alarm.scheduledTime);
-      });
-    });
-  }
-
   function renderNextRemindersImmediate() {
-    const recurringInterval =
+    const intervalMinutes =
       Number(elements.recurringIntervalValue.textContent) || 15;
     nextDueState.recurring = elements.recurringToggle.checked
-      ? Date.now() + recurringInterval * 60 * 1000
+      ? Date.now() + intervalMinutes * 60 * 1000
       : null;
     renderNextReminders();
   }
 
   function startCountdownRenderLoop() {
-    if (renderTimer) {
-      clearInterval(renderTimer);
-    }
-
+    clearInterval(renderTimer);
     renderNextReminders();
     renderTimer = setInterval(renderNextReminders, 1000);
   }
+
+  // ─── UI state ──────────────────────────────────────────────────────────────
 
   function syncModeUI() {
     elements.hourlySettings.classList.remove("hidden");
@@ -190,41 +156,69 @@ document.addEventListener("DOMContentLoaded", () => {
     syncModeUI();
   }
 
-  /*
-   * Get settings functions
-   */
+  // ─── Load settings directly from storage ──────────────────────────────────
+
+  async function getAlarmNextDueAt(alarmName) {
+    return new Promise((resolve) => {
+      chrome.alarms.get(alarmName, (alarm) => {
+        if (chrome.runtime.lastError || !alarm?.scheduledTime) {
+          resolve(null);
+          return;
+        }
+        resolve(alarm.scheduledTime);
+      });
+    });
+  }
+
   async function loadSettings() {
     clearStatus();
     try {
-      await store.init();
-      const settingsState = store.getSettingsState();
-      const hourlyState = store.getReminderState("hourly");
-      const recurringState = store.getReminderState("recurring");
-      const statsState = store.getStatsState();
+      const keys = [
+        STORAGE_KEYS.SOUND_ENABLED,
+        STORAGE_KEYS.DAILY_STATS,
+        STORAGE_KEYS.HOURLY_ENABLED,
+        STORAGE_KEYS.HOURLY_NEXT_DUE_AT,
+        STORAGE_KEYS.RECURRING_ENABLED,
+        STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
+        STORAGE_KEYS.RECURRING_NEXT_DUE_AT,
+        STORAGE_KEYS.OVERLAY_ACTIVE,
+      ];
 
-      setSoundIconState(settingsState.soundEnabled !== false);
-      setMode(hourlyState.enabled !== false, recurringState.enabled !== false);
-      syncModeUI();
-      elements.recurringIntervalValue.textContent = String(
-        recurringState.intervalMinutes || 15,
-      );
-      nextDueState.hourly =
-        hourlyState.enabled === true
-          ? (await getAlarmNextDueAt("echoverse-hourly-reminder")) ||
-            hourlyState.nextDueAt
-          : null;
-      nextDueState.recurring =
-        recurringState.enabled === true
-          ? (await getAlarmNextDueAt("echoverse-recurring-reminder")) ||
-            recurringState.nextDueAt
-          : null;
+      // Fetch storage + both alarms in parallel
+      const [raw, hourlyAlarmDue, recurringAlarmDue] = await Promise.all([
+        chrome.storage.sync.get(keys),
+        getAlarmNextDueAt(ALARM_NAMES.HOURLY),
+        getAlarmNextDueAt(ALARM_NAMES.RECURRING),
+      ]);
 
-      const statsDayKey = new Date().toISOString().slice(0, 10);
-      const todayStats = (statsState.dailyStats &&
-        statsState.dailyStats[statsDayKey]) || {
-        shown: 0,
-      };
+      const hourlyEnabled = raw[STORAGE_KEYS.HOURLY_ENABLED] === true;
+      const recurringEnabled = raw[STORAGE_KEYS.RECURRING_ENABLED] === true;
+      const soundEnabled = raw[STORAGE_KEYS.SOUND_ENABLED] !== false;
+      const intervalMinutes =
+        Number(raw[STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]) ||
+        DEFAULTS.RECURRING_INTERVAL_MINUTES;
+      const dailyStats = raw[STORAGE_KEYS.DAILY_STATS] || {};
+
+      overlayActive = raw[STORAGE_KEYS.OVERLAY_ACTIVE] === true;
+
+      setSoundIconState(soundEnabled);
+      setMode(hourlyEnabled, recurringEnabled);
+      elements.recurringIntervalValue.textContent = String(intervalMinutes);
+
+      nextDueState.hourly = hourlyEnabled
+        ? hourlyAlarmDue || raw[STORAGE_KEYS.HOURLY_NEXT_DUE_AT] || null
+        : null;
+      // Prefer storage value over alarm scheduled time — storage is updated
+      // immediately on snooze (5 min), while the recurring alarm still fires
+      // on the original interval.
+      nextDueState.recurring = recurringEnabled
+        ? raw[STORAGE_KEYS.RECURRING_NEXT_DUE_AT] || recurringAlarmDue || null
+        : null;
+
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayStats = dailyStats[todayKey] || { shown: 0 };
       elements.todayCount.textContent = String(todayStats.shown || 0);
+
       startCountdownRenderLoop();
     } catch (error) {
       log("Error loading settings:", error);
@@ -232,8 +226,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ─── Sync timer state to background ───────────────────────────────────────
+
   async function syncTimerState() {
-    const intervalValue = +elements.recurringIntervalValue.textContent;
+    const intervalValue = Number(elements.recurringIntervalValue.textContent);
 
     const payload = {
       type: MESSAGE_TYPES.START_TIMER,
@@ -246,28 +242,21 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await chrome.runtime.sendMessage(payload);
 
-      if (
-        response &&
-        Object.prototype.hasOwnProperty.call(response, "hourlyNextDueAt")
-      ) {
+      if (response?.hourlyNextDueAt !== undefined) {
         nextDueState.hourly = response.hourlyNextDueAt;
       }
-      if (
-        response &&
-        Object.prototype.hasOwnProperty.call(response, "recurringNextDueAt")
-      ) {
-        nextDueState.recurring = response.recurringNextDueAt;
-      } else {
-        nextDueState.recurring = elements.recurringToggle.checked
-          ? Date.now() + intervalValue * 60 * 1000
-          : null;
-      }
+      nextDueState.recurring =
+        response?.recurringNextDueAt !== undefined
+          ? response.recurringNextDueAt
+          : elements.recurringToggle.checked
+            ? Date.now() + intervalValue * 60 * 1000
+            : null;
 
       renderNextReminders();
 
-      if (response && response.status) {
+      if (response?.status) {
         updateStatus("Đã cập nhật chuông báo");
-      } else if (response && response.error) {
+      } else if (response?.error) {
         updateStatus(response.error, true);
       }
     } catch (error) {
@@ -276,17 +265,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /**
-   * Step interval up or down
-   * @param {number} delta - Amount to step (positive or negative)
-   */
+  // ─── Interval controls ─────────────────────────────────────────────────────
+
   function stepInterval(delta) {
-    const current = +elements.recurringIntervalValue.textContent;
+    const current = Number(elements.recurringIntervalValue.textContent);
     const next = Math.max(5, current + delta);
     elements.recurringIntervalValue.textContent = next;
     renderNextRemindersImmediate();
     syncTimerState();
   }
+
+  // ─── Event listeners ───────────────────────────────────────────────────────
 
   elements.hourlyToggle.addEventListener("change", () => {
     syncModeUI();
@@ -301,6 +290,22 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.decrementButton.addEventListener("click", () => stepInterval(-5));
   elements.incrementButton.addEventListener("click", () => stepInterval(5));
   elements.soundToggleButton.addEventListener("click", handleSoundToggleClick);
+
+  // Listen for storage changes to update overlay state and snooze countdown in realtime
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+
+    if (STORAGE_KEYS.OVERLAY_ACTIVE in changes) {
+      overlayActive = changes[STORAGE_KEYS.OVERLAY_ACTIVE].newValue === true;
+      renderNextReminders();
+    }
+
+    if (STORAGE_KEYS.RECURRING_NEXT_DUE_AT in changes) {
+      const newVal = changes[STORAGE_KEYS.RECURRING_NEXT_DUE_AT].newValue;
+      nextDueState.recurring = newVal || null;
+      renderNextReminders();
+    }
+  });
 
   loadSettings();
 });

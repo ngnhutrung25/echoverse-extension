@@ -1,8 +1,11 @@
 import { MESSAGE_TYPES } from "../constants.js";
-import store from "../state/store.js";
+import { getData } from "../store.js";
 import { log } from "../helpers.js";
 
-// Global state variable
+const EXCLUDED_SOUND_ERROR_MESSAGES = [
+  "The message port closed before a response was received",
+];
+
 let offscreenCreating;
 
 export async function setupOffscreenDocument(path) {
@@ -31,32 +34,37 @@ export async function setupOffscreenDocument(path) {
 
 export async function playSound(soundName = "bell") {
   try {
-    await store.init();
-    const soundEnabled = store.getSettingsState().soundEnabled !== false;
+    const data = await getData();
+    const soundEnabled = data.common.soundEnabled !== false;
     log(`Sound enabled state: ${soundEnabled}`);
 
-    if (soundEnabled) {
-      await setupOffscreenDocument("src/offscreen/index.html");
-
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          {
-            type: MESSAGE_TYPES.PLAY_SOUND_OFFSCREEN,
-            soundName,
-          },
-          () => {
-            if (chrome.runtime.lastError) {
-              log(`Sound message error: ${chrome.runtime.lastError.message}`);
-            } else {
-              log("Sound playback requested via offscreen document.");
-            }
-            resolve();
-          },
-        );
-      });
-    } else {
+    if (!soundEnabled) {
       log("Sound is disabled. Notification sent without sound.");
+      return;
     }
+
+    await setupOffscreenDocument("src/offscreen/index.html");
+
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: MESSAGE_TYPES.PLAY_SOUND_OFFSCREEN, soundName },
+        () => {
+          if (chrome.runtime.lastError) {
+            const msg = chrome.runtime.lastError.message;
+            if (
+              !EXCLUDED_SOUND_ERROR_MESSAGES.some((excluded) =>
+                msg.includes(excluded),
+              )
+            ) {
+              log(`Sound message error: ${msg}`);
+            }
+          } else {
+            log("Sound playback requested via offscreen document.");
+          }
+          resolve();
+        },
+      );
+    });
   } catch (error) {
     log(`Sound playback error: ${error.message}`);
   }
