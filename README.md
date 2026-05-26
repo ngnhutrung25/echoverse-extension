@@ -2,7 +2,7 @@
 
 Echoverse is a Chrome extension for gentle time-based reminders. It helps you stay hydrated, take breaks, and keep a healthier work rhythm with sound alerts, popup controls, and a full-screen overlay.
 
-**Version:** `0.5.1`
+**Version:** `0.6.0`
 
 <table>
   <tr>
@@ -13,11 +13,11 @@ Echoverse is a Chrome extension for gentle time-based reminders. It helps you st
 
 ## Features
 
-- **Hourly reminders**: fire on the next top of the hour, then continue on a fixed hourly cycle.
+- **Hourly reminders**: fire on the next top of the hour, then continue on a fixed hourly cycle. Notification shows the current hour.
 - **Recurring reminders**: fire every custom number of minutes from the popup.
-- **Full-screen overlay**: show a blocking reminder with `Skip`, `Snooze`, and `Pause`.
-- **Pause by disabling recurring**: pause now works by turning off the recurring toggle, not by keeping a separate paused state.
-- **Sound toggle**: enable or disable reminder sounds.
+- **Full-screen overlay**: show a blocking reminder with `Skip` and `Pause`.
+- **Pause by disabling recurring**: pause works by turning off the recurring toggle, not by keeping a separate paused state.
+- **Sound toggle**: enable or disable reminder sounds. Hourly uses a bell, recurring uses a beep.
 - **Daily stats**: track how many reminders were shown today.
 - **Wake-safe rehydration**: clear alarms while the machine is locked and rebuild them when it becomes active again.
 - **Popup timer controls**: adjust recurring interval and toggle reminder modes from the popup.
