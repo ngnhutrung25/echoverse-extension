@@ -37,7 +37,6 @@ export const LANDSCAPE_IMAGES = [
   "https://i.natgeofe.com/n/eaa177ac-68bc-4b08-9b84-33e79f5fc5dc/28-iconic-birds-saint-kilda-scotland.jpg",
   "https://i.natgeofe.com/n/a2afc371-a0c0-43f2-a0a9-1c457db7f340/29-iconic-ocras-jorden-norway.jpg",
   "https://i.natgeofe.com/n/9dab1f4c-90dc-432a-9bb5-dbc9d3f38be8/31-iconic-sunflowers-denton-montana.jpg",
-  "https://i.natgeofe.com/n/a9919a2e-4b50-481d-b997-050beec5070d/32-iconic-gentoo-penguins-antarctica.jpg",
   "https://i.natgeofe.com/n/47c06474-7247-4a02-a0d7-4265d74c73d8/33-iconic-antelope-canyon-arizona.jpg",
   "https://i.natgeofe.com/n/575ebe8c-4c9b-4654-803d-2cc5babae8ab/34-iconic-cave-yucatan-peninsula-mexico.jpg",
   "https://i.natgeofe.com/n/88666160-9683-47b2-9625-53bf5d495b9b/35-iconic-camel-thorn-trees-namib-naukluft-park-namibia.jpg",

@@ -2,8 +2,6 @@
 
 Echoverse is a Chrome extension for gentle time-based reminders. It helps you stay hydrated, take breaks, and keep a healthier work rhythm with sound alerts, popup controls, and a full-screen overlay.
 
-**Version:** `0.6.0`
-
 <table>
   <tr>
     <td style="border: none; vertical-align: middle; text-align: center;"><img src="assets/popup.webp" alt="popup" style="width: 290px; object-fit: contain;"></td>

@@ -103,6 +103,24 @@ async function rehydrateScheduler() {
   }
 }
 
+async function ensureSchedulerReady() {
+  const data = await getData();
+  const [hourlyAlarm, recurringAlarm] = await Promise.all([
+    chrome.alarms.get(ALARM_NAMES.HOURLY),
+    chrome.alarms.get(ALARM_NAMES.RECURRING),
+  ]);
+
+  if (data.hourly.enabled && !hourlyAlarm) {
+    await ensureHourlyAlarm();
+    log("HOURLY scheduler healed from missing alarm.");
+  }
+
+  if (data.recurring.enabled && !recurringAlarm) {
+    await ensureRecurringAlarm(normalizeInterval(data.recurring));
+    log("RECURRING scheduler healed from missing alarm.");
+  }
+}
+
 // ─── MESSAGE HANDLERS ────────────────────────────────────────────────────────
 
 async function handleOverlayActionMessage(message, sendResponse) {
@@ -222,6 +240,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // Guard against concurrent startup runs
 let startupHandling = false;
 
+// Chrome extension startup: initialize scheduler
 chrome.runtime.onStartup.addListener(async () => {
   if (startupHandling) return;
   startupHandling = true;
@@ -241,8 +260,27 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   await rehydrateScheduler();
 });
 
+// Chrome tab changes: rehydrateScheduler fallback
+chrome.tabs.onActivated.addListener(async () => {
+  try {
+    await ensureSchedulerReady();
+  } catch (error) {
+    log(`Error healing on tab activation: ${error.message}`);
+  }
+});
+
+// Chrome window focus changes: rehydrateScheduler fallback
+chrome.windows.onFocusChanged.addListener(async () => {
+  try {
+    await ensureSchedulerReady();
+  } catch (error) {
+    log(`Error healing on window focus change: ${error.message}`);
+  }
+});
+
 let wasLocked = false;
 
+// Chrome idle state changes: main logic
 chrome.idle.onStateChanged.addListener(async (state) => {
   if (state === "locked") {
     wasLocked = true;
