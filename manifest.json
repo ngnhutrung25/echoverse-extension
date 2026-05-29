@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Echoverse",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Chrome extension for time-based reminders with customizable messages, sound notifications, and full-screen overlays. Supports hourly and recurring intervals with statistics tracking.",
   "permissions": [
     "notifications",
