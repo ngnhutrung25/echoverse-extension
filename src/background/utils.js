@@ -1,4 +1,4 @@
-import { log } from "../helpers.js";
+import { log, isIgnorableError } from "../helpers.js";
 import { DEFAULTS } from "../constants.js";
 
 const EXCLUDED_ERROR_MESSAGES = [
@@ -34,11 +34,7 @@ export function sendToTabs(message) {
     activeTabs.forEach((tab) => {
       chrome.tabs.sendMessage(tab.id, message, () => {
         if (chrome.runtime.lastError) {
-          if (
-            !EXCLUDED_ERROR_MESSAGES.some((msg) =>
-              chrome.runtime.lastError.message.includes(msg),
-            )
-          ) {
+          if (!isIgnorableError(chrome.runtime.lastError.message, EXCLUDED_ERROR_MESSAGES)) {
             log(`Tab message error: ${chrome.runtime.lastError.message}`);
           }
         } else {

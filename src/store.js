@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, DEFAULTS, ACTIONS } from "./constants.js";
+import { STORAGE_KEYS, DEFAULTS } from "./constants.js";
 import { log } from "./helpers.js";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
@@ -33,42 +33,50 @@ const ALL_KEYS = [
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
 
-function parseHourly(data) {
+function parseHourly(raw) {
   return {
-    enabled: data[STORAGE_KEYS.HOURLY_ENABLED] === true,
+    enabled: raw[STORAGE_KEYS.HOURLY_ENABLED] === true,
     intervalMinutes: Math.max(
       1,
       Number(
-        data[STORAGE_KEYS.HOURLY_INTERVAL_MINUTES] ||
+        raw[STORAGE_KEYS.HOURLY_INTERVAL_MINUTES] ||
           DEFAULTS.HOURLY_INTERVAL_MINUTES,
       ),
     ),
   };
 }
 
-function parseRecurring(data) {
+function parseRecurring(raw) {
   return {
-    enabled: data[STORAGE_KEYS.RECURRING_ENABLED] === true,
+    enabled: raw[STORAGE_KEYS.RECURRING_ENABLED] === true,
     intervalMinutes: Math.max(
       1,
       Number(
-        data[STORAGE_KEYS.RECURRING_INTERVAL_MINUTES] ||
+        raw[STORAGE_KEYS.RECURRING_INTERVAL_MINUTES] ||
           DEFAULTS.RECURRING_INTERVAL_MINUTES,
       ),
     ),
   };
 }
 
-function parseCommon(data) {
+function parseCommon(raw) {
   return {
-    soundEnabled: data[STORAGE_KEYS.SOUND_ENABLED] !== false,
-    dailyStats: data[STORAGE_KEYS.DAILY_STATS] || {},
+    soundEnabled: raw[STORAGE_KEYS.SOUND_ENABLED] !== false,
+    dailyStats: raw[STORAGE_KEYS.DAILY_STATS] || {},
+  };
+}
+
+function parseAll(raw) {
+  return {
+    hourly: parseHourly(raw),
+    recurring: parseRecurring(raw),
+    common: parseCommon(raw),
   };
 }
 
 // ─── In-memory cache (background service worker lifetime) ─────────────────────
 
-let _cache = null;
+let _rawCache = null;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -76,22 +84,17 @@ let _cache = null;
  * Load all state from storage into cache. Safe to call multiple times.
  */
 async function loadAll() {
-  const raw = await storageGet(ALL_KEYS);
-  _cache = {
-    hourly: parseHourly(raw),
-    recurring: parseRecurring(raw),
-    common: parseCommon(raw),
-  };
+  _rawCache = await storageGet(ALL_KEYS);
   log("Store loaded");
-  return _cache;
+  return parseAll(_rawCache);
 }
 
 /**
- * Get full state. Loads from storage if cache is empty.
+ * Get full parsed state. Loads from storage if cache is empty.
  */
 async function getData() {
-  if (!_cache) await loadAll();
-  return _cache;
+  if (!_rawCache) await loadAll();
+  return parseAll(_rawCache);
 }
 
 /**
@@ -100,52 +103,31 @@ async function getData() {
  */
 async function setData(patch) {
   await storageSet(patch);
-
-  if (_cache) {
-    const raw = { ..._rawFromCache(), ...patch };
-    _cache = {
-      hourly: parseHourly(raw),
-      recurring: parseRecurring(raw),
-      common: parseCommon(raw),
-    };
+  if (_rawCache) {
+    _rawCache = { ..._rawCache, ...patch };
   }
-}
-
-/**
- * Reconstruct a flat raw object from current cache (for re-parsing after patch)
- */
-function _rawFromCache() {
-  if (!_cache) return {};
-  const { hourly, recurring, common } = _cache;
-  return {
-    [STORAGE_KEYS.HOURLY_ENABLED]: hourly.enabled,
-    [STORAGE_KEYS.HOURLY_INTERVAL_MINUTES]: hourly.intervalMinutes,
-    [STORAGE_KEYS.RECURRING_ENABLED]: recurring.enabled,
-    [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: recurring.intervalMinutes,
-    [STORAGE_KEYS.SOUND_ENABLED]: common.soundEnabled,
-    [STORAGE_KEYS.DAILY_STATS]: common.dailyStats,
-  };
 }
 
 /**
  * Invalidate cache (force reload on next getData call).
  */
 function invalidate() {
-  _cache = null;
+  _rawCache = null;
 }
 
 // ─── Convenience helpers ──────────────────────────────────────────────────────
 
 async function updateTodayStats() {
-  const data = await getData();
   const todayKey = new Date().toISOString().slice(0, 10);
-  const current = data.common.dailyStats[todayKey] || { recurringShown: 0 };
+  const raw = await storageGet([STORAGE_KEYS.DAILY_STATS]);
+  const dailyStats = raw[STORAGE_KEYS.DAILY_STATS] || {};
+  const current = dailyStats[todayKey] || { recurringShown: 0 };
   const next = { ...current };
   next.recurringShown = (next.recurringShown || 0) + 1;
 
   await setData({
     [STORAGE_KEYS.DAILY_STATS]: {
-      ...data.common.dailyStats,
+      ...dailyStats,
       [todayKey]: next,
     },
   });

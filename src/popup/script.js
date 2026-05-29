@@ -1,9 +1,4 @@
-import {
-  MESSAGE_TYPES,
-  DEFAULTS,
-  STORAGE_KEYS,
-  ALARM_NAMES,
-} from "../constants.js";
+import { MESSAGE_TYPES, DEFAULTS } from "../constants.js";
 import { log } from "../helpers.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -142,53 +137,29 @@ document.addEventListener("DOMContentLoaded", () => {
     syncModeUI();
   }
 
-  // ─── Alarm helpers ─────────────────────────────────────────────────────────
-
-  function getAlarmNextDueAt(alarmName) {
-    return new Promise((resolve) => {
-      chrome.alarms.get(alarmName, (alarm) => {
-        if (chrome.runtime.lastError || !alarm?.scheduledTime) {
-          resolve(null);
-          return;
-        }
-        resolve(alarm.scheduledTime);
-      });
-    });
-  }
-
   // ─── Load settings ─────────────────────────────────────────────────────────
 
   async function loadSettings() {
     clearStatus();
     try {
-      const keys = [
-        STORAGE_KEYS.SOUND_ENABLED,
-        STORAGE_KEYS.DAILY_STATS,
-        STORAGE_KEYS.HOURLY_ENABLED,
-        STORAGE_KEYS.RECURRING_ENABLED,
-        STORAGE_KEYS.RECURRING_INTERVAL_MINUTES,
-      ];
+      const state = await chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.GET_STATE,
+      });
 
-      const [raw, hourlyAlarmDue, recurringAlarmDue] = await Promise.all([
-        chrome.storage.sync.get(keys),
-        getAlarmNextDueAt(ALARM_NAMES.HOURLY),
-        getAlarmNextDueAt(ALARM_NAMES.RECURRING),
-      ]);
+      if (state?.error) throw new Error(state.error);
 
-      const hourlyEnabled = raw[STORAGE_KEYS.HOURLY_ENABLED] === true;
-      const recurringEnabled = raw[STORAGE_KEYS.RECURRING_ENABLED] === true;
-      const soundEnabled = raw[STORAGE_KEYS.SOUND_ENABLED] !== false;
       const intervalMinutes =
-        Number(raw[STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]) ||
-        DEFAULTS.RECURRING_INTERVAL_MINUTES;
-      const dailyStats = raw[STORAGE_KEYS.DAILY_STATS] || {};
+        state.recurringIntervalMinutes || DEFAULTS.RECURRING_INTERVAL_MINUTES;
+      const dailyStats = state.dailyStats || {};
 
-      setSoundIconState(soundEnabled);
-      setMode(hourlyEnabled, recurringEnabled);
+      setSoundIconState(state.soundEnabled !== false);
+      setMode(state.hourlyEnabled === true, state.recurringEnabled === true);
       elements.recurringIntervalValue.textContent = String(intervalMinutes);
 
-      nextDueState.hourly = hourlyEnabled ? hourlyAlarmDue : null;
-      nextDueState.recurring = recurringEnabled ? recurringAlarmDue : null;
+      nextDueState.hourly = state.hourlyEnabled ? state.hourlyNextDueAt : null;
+      nextDueState.recurring = state.recurringEnabled
+        ? state.recurringNextDueAt
+        : null;
 
       const todayKey = new Date().toISOString().slice(0, 10);
       const todayStats = dailyStats[todayKey] || { recurringShown: 0 };

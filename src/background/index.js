@@ -45,6 +45,27 @@ async function ensureRecurringAlarm(intervalMinutes) {
   });
 }
 
+async function applyHourlySchedule(enabled, currentData) {
+  if (enabled) {
+    if (!currentData.hourly.enabled) await ensureHourlyAlarm();
+    return { [STORAGE_KEYS.HOURLY_ENABLED]: true };
+  }
+  await chrome.alarms.clear(ALARM_NAMES.HOURLY);
+  return { [STORAGE_KEYS.HOURLY_ENABLED]: false };
+}
+
+async function applyRecurringSchedule(enabled, intervalMinutes) {
+  if (enabled) {
+    await ensureRecurringAlarm(intervalMinutes);
+    return {
+      [STORAGE_KEYS.RECURRING_ENABLED]: true,
+      [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: intervalMinutes,
+    };
+  }
+  await chrome.alarms.clear(ALARM_NAMES.RECURRING);
+  return { [STORAGE_KEYS.RECURRING_ENABLED]: false };
+}
+
 // ─── CORE REMINDER LOGIC ─────────────────────────────────────────────────────
 
 async function triggerReminder(mode) {
@@ -56,21 +77,17 @@ async function triggerReminder(mode) {
     return;
   }
 
-  const now = new Date();
-  const hours = now.getHours();
-
   const message =
     mode === MODES.HOURLY
-      ? DEFAULTS.HOURLY_MESSAGE.replace("{hour}", hours)
+      ? DEFAULTS.HOURLY_MESSAGE.replace("{hour}", new Date().getHours())
       : DEFAULTS.RECURRING_MESSAGE;
-
-  await updateTodayStats(ACTIONS.RECURRING_SHOWN);
 
   sendNotification(message);
 
   await playSound(mode === MODES.RECURRING ? SOUNDS.BEEP : SOUNDS.BELL);
 
   if (mode === MODES.RECURRING) {
+    await updateTodayStats();
     const imageUrl = await getRandomPreloadedImage();
     sendToTabs({
       type: MESSAGE_TYPES.SHOW_OVERLAY,
@@ -123,20 +140,52 @@ async function ensureSchedulerReady() {
 
 // ─── MESSAGE HANDLERS ────────────────────────────────────────────────────────
 
-async function handleOverlayActionMessage(message, sendResponse) {
-  log(`[overlay] action received: ${message.action}`);
-
-  if (message.action === ACTIONS.PAUSE) {
-    await setData({ [STORAGE_KEYS.RECURRING_ENABLED]: false });
-    await chrome.alarms.clear(ALARM_NAMES.RECURRING);
-    sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
-    sendResponse({ ok: true });
-    return true;
+async function handleGetStateMessage(sendResponse) {
+  try {
+    const data = await getData();
+    const [hourlyAlarm, recurringAlarm] = await Promise.all([
+      chrome.alarms.get(ALARM_NAMES.HOURLY),
+      chrome.alarms.get(ALARM_NAMES.RECURRING),
+    ]);
+    sendResponse({
+      hourlyEnabled: data.hourly.enabled,
+      recurringEnabled: data.recurring.enabled,
+      recurringIntervalMinutes: data.recurring.intervalMinutes,
+      soundEnabled: data.common.soundEnabled,
+      dailyStats: data.common.dailyStats,
+      hourlyNextDueAt: hourlyAlarm?.scheduledTime ?? null,
+      recurringNextDueAt: recurringAlarm?.scheduledTime ?? null,
+    });
+  } catch (error) {
+    log(`Error getting state: ${error.message}`);
+    sendResponse({ error: error.message });
   }
+  return true;
+}
 
-  if (message.action === ACTIONS.SKIP) {
-    sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
-    sendResponse({ ok: true });
+async function handleOverlayActionMessage(message, sendResponse) {
+  try {
+    log(`[overlay] action received: ${message.action}`);
+
+    if (message.action === ACTIONS.PAUSE) {
+      await setData({ [STORAGE_KEYS.RECURRING_ENABLED]: false });
+      await chrome.alarms.clear(ALARM_NAMES.RECURRING);
+      sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    if (message.action === ACTIONS.SKIP) {
+      sendToTabs({ type: MESSAGE_TYPES.HIDE_OVERLAY });
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    sendResponse({ ok: false, error: `Unknown action: ${message.action}` });
+    return true;
+  } catch (error) {
+    log(`Error handling overlay action: ${error.message}`);
+    sendResponse({ ok: false, error: error.message });
     return true;
   }
 }
@@ -144,35 +193,18 @@ async function handleOverlayActionMessage(message, sendResponse) {
 async function handleStartTimerMessage(message, sendResponse) {
   const data = await getData();
   const enabledModes = [];
-  const patch = {};
 
-  // ── Hourly ──
-  if (message.hourlyEnabled) {
-    if (!data.hourly.enabled) {
-      await ensureHourlyAlarm();
-    }
-    Object.assign(patch, { [STORAGE_KEYS.HOURLY_ENABLED]: true });
-    enabledModes.push("theo giờ");
-  } else {
-    Object.assign(patch, { [STORAGE_KEYS.HOURLY_ENABLED]: false });
-    await chrome.alarms.clear(ALARM_NAMES.HOURLY);
-  }
+  const hourlyPatch = await applyHourlySchedule(message.hourlyEnabled, data);
+  if (message.hourlyEnabled) enabledModes.push("theo giờ");
 
-  // ── Recurring ──
-  if (message.recurringEnabled) {
-    const intervalMinutes = normalizeInterval(message);
-    Object.assign(patch, {
-      [STORAGE_KEYS.RECURRING_ENABLED]: true,
-      [STORAGE_KEYS.RECURRING_INTERVAL_MINUTES]: intervalMinutes,
-    });
-    await ensureRecurringAlarm(intervalMinutes);
-    enabledModes.push("lặp lại");
-  } else {
-    Object.assign(patch, { [STORAGE_KEYS.RECURRING_ENABLED]: false });
-    await chrome.alarms.clear(ALARM_NAMES.RECURRING);
-  }
+  const intervalMinutes = normalizeInterval(message);
+  const recurringPatch = await applyRecurringSchedule(
+    message.recurringEnabled,
+    intervalMinutes,
+  );
+  if (message.recurringEnabled) enabledModes.push("lặp lại");
 
-  await setData(patch);
+  await setData({ ...hourlyPatch, ...recurringPatch });
 
   const [hourlyAlarm, recurringAlarm] = await Promise.all([
     chrome.alarms.get(ALARM_NAMES.HOURLY),
@@ -220,6 +252,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ─── MESSAGE LISTENERS ───────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === MESSAGE_TYPES.GET_STATE) {
+    handleGetStateMessage(sendResponse);
+    return true;
+  }
   if (message?.type === MESSAGE_TYPES.OVERLAY_ACTION) {
     handleOverlayActionMessage(message, sendResponse);
     return true;

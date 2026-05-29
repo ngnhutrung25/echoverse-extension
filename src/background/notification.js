@@ -1,4 +1,4 @@
-import { log } from "../helpers.js";
+import { log, isIgnorableError } from "../helpers.js";
 
 const EXCLUDED_ERROR_MESSAGES = ["Unable to download all specified images"];
 
@@ -14,11 +14,7 @@ export function sendNotification(message) {
     },
     (notificationId) => {
       if (chrome.runtime.lastError) {
-        if (
-          !EXCLUDED_ERROR_MESSAGES.some((msg) =>
-            chrome.runtime.lastError.message.includes(msg),
-          )
-        ) {
+        if (!isIgnorableError(chrome.runtime.lastError.message, EXCLUDED_ERROR_MESSAGES)) {
           log(
             `Notification error: ${JSON.stringify(chrome.runtime.lastError)}`,
           );
