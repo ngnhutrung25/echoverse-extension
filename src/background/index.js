@@ -64,7 +64,7 @@ async function triggerReminder(mode) {
       ? DEFAULTS.HOURLY_MESSAGE.replace("{hour}", hours)
       : DEFAULTS.RECURRING_MESSAGE;
 
-  await updateTodayStats(ACTIONS.SHOWN);
+  await updateTodayStats(ACTIONS.RECURRING_SHOWN);
 
   sendNotification(message);
 

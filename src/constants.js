@@ -33,7 +33,7 @@ export const MESSAGE_TYPES = {
 export const ACTIONS = {
   SKIP: "SKIP",
   PAUSE: "PAUSE",
-  SHOWN: "SHOWN",
+  RECURRING_SHOWN: "RECURRING_SHOWN",
 };
 
 export const STORAGE_KEYS = {

@@ -191,8 +191,8 @@ document.addEventListener("DOMContentLoaded", () => {
       nextDueState.recurring = recurringEnabled ? recurringAlarmDue : null;
 
       const todayKey = new Date().toISOString().slice(0, 10);
-      const todayStats = dailyStats[todayKey] || { shown: 0 };
-      elements.todayCount.textContent = String(todayStats.shown || 0);
+      const todayStats = dailyStats[todayKey] || { recurringShown: 0 };
+      elements.todayCount.textContent = String(todayStats.recurringShown || 0);
 
       startCountdownRenderLoop();
     } catch (error) {

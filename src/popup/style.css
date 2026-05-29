@@ -325,6 +325,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
 }
 
 .today-label {

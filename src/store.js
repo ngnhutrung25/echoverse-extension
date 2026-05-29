@@ -136,12 +136,12 @@ function invalidate() {
 
 // ─── Convenience helpers ──────────────────────────────────────────────────────
 
-async function updateTodayStats(action) {
+async function updateTodayStats() {
   const data = await getData();
   const todayKey = new Date().toISOString().slice(0, 10);
-  const current = data.common.dailyStats[todayKey] || { shown: 0 };
+  const current = data.common.dailyStats[todayKey] || { recurringShown: 0 };
   const next = { ...current };
-  if (action === ACTIONS.SHOWN) next.shown += 1;
+  next.recurringShown = (next.recurringShown || 0) + 1;
 
   await setData({
     [STORAGE_KEYS.DAILY_STATS]: {
