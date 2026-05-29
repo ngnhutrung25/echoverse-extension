@@ -14,3 +14,10 @@ export function log(message) {
 export function isIgnorableError(errorMessage, excludeList) {
   return excludeList.some((pattern) => errorMessage.includes(pattern));
 }
+
+/**
+ * Returns today's date key (YYYY-MM-DD) in Vietnam time (Asia/Ho_Chi_Minh).
+ */
+export function getTodayKey() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+}

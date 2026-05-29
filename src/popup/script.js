@@ -1,5 +1,5 @@
 import { MESSAGE_TYPES, DEFAULTS } from "../constants.js";
-import { log } from "../helpers.js";
+import { log, getTodayKey } from "../helpers.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? state.recurringNextDueAt
         : null;
 
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey = getTodayKey();
       const todayStats = dailyStats[todayKey] || { recurringShown: 0 };
       elements.todayCount.textContent = String(todayStats.recurringShown || 0);
 

@@ -1,5 +1,5 @@
 import { STORAGE_KEYS, DEFAULTS } from "./constants.js";
-import { log } from "./helpers.js";
+import { log, getTodayKey } from "./helpers.js";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ function invalidate() {
 // ─── Convenience helpers ──────────────────────────────────────────────────────
 
 async function updateTodayStats() {
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = getTodayKey();
   const raw = await storageGet([STORAGE_KEYS.DAILY_STATS]);
   const dailyStats = raw[STORAGE_KEYS.DAILY_STATS] || {};
   const current = dailyStats[todayKey] || { recurringShown: 0 };
