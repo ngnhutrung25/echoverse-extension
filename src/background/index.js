@@ -14,7 +14,6 @@ import { sendToTabs, normalizeInterval } from "./utils.js";
 import { sendNotification } from "./notification.js";
 import {
   getData,
-  loadAll,
   setData,
   updateTodayStats,
   invalidate,
@@ -100,41 +99,29 @@ async function triggerReminder(mode) {
 
 // ─── SYSTEM INITIALIZATION & REHYDRATION ─────────────────────────────────────
 
-async function rehydrateScheduler() {
-  const data = await loadAll();
-
-  if (data.hourly.enabled) {
-    await ensureHourlyAlarm();
-    log(`HOURLY scheduler restored.`);
-  } else {
-    await chrome.alarms.clear(ALARM_NAMES.HOURLY);
-    log(`HOURLY scheduler remains off.`);
-  }
-
-  if (data.recurring.enabled) {
-    await ensureRecurringAlarm(normalizeInterval(data.recurring));
-    log(`RECURRING scheduler restored.`);
-  } else {
-    await chrome.alarms.clear(ALARM_NAMES.RECURRING);
-    log(`RECURRING scheduler remains off.`);
-  }
-}
+let schedulerHealing = false;
 
 async function ensureSchedulerReady() {
-  const data = await getData();
-  const [hourlyAlarm, recurringAlarm] = await Promise.all([
-    chrome.alarms.get(ALARM_NAMES.HOURLY),
-    chrome.alarms.get(ALARM_NAMES.RECURRING),
-  ]);
+  if (schedulerHealing) return;
+  schedulerHealing = true;
+  try {
+    const data = await getData();
+    const [hourlyAlarm, recurringAlarm] = await Promise.all([
+      chrome.alarms.get(ALARM_NAMES.HOURLY),
+      chrome.alarms.get(ALARM_NAMES.RECURRING),
+    ]);
 
-  if (data.hourly.enabled && !hourlyAlarm) {
-    await ensureHourlyAlarm();
-    log("HOURLY scheduler healed from missing alarm.");
-  }
+    if (data.hourly.enabled && !hourlyAlarm) {
+      await ensureHourlyAlarm();
+      log("HOURLY scheduler healed from missing alarm.");
+    }
 
-  if (data.recurring.enabled && !recurringAlarm) {
-    await ensureRecurringAlarm(normalizeInterval(data.recurring));
-    log("RECURRING scheduler healed from missing alarm.");
+    if (data.recurring.enabled && !recurringAlarm) {
+      await ensureRecurringAlarm(normalizeInterval(data.recurring));
+      log("RECURRING scheduler healed from missing alarm.");
+    }
+  } finally {
+    schedulerHealing = false;
   }
 }
 
@@ -282,7 +269,7 @@ chrome.runtime.onStartup.addListener(async () => {
   startupHandling = true;
   try {
     log("Extension starting up...");
-    await rehydrateScheduler();
+    await ensureSchedulerReady();
     log("Extension startup completed.");
   } catch (error) {
     log(`Startup error: ${error.message}`);
@@ -293,10 +280,10 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   log(`Extension installed/updated: ${details.reason}`);
-  await rehydrateScheduler();
+  await ensureSchedulerReady();
 });
 
-// Chrome tab changes: rehydrateScheduler fallback
+// Chrome tab changes: scheduler heal fallback
 chrome.tabs.onActivated.addListener(async () => {
   try {
     await ensureSchedulerReady();
@@ -305,7 +292,7 @@ chrome.tabs.onActivated.addListener(async () => {
   }
 });
 
-// Chrome window focus changes: rehydrateScheduler fallback
+// Chrome window focus changes: scheduler heal fallback
 chrome.windows.onFocusChanged.addListener(async () => {
   try {
     await ensureSchedulerReady();
@@ -314,12 +301,9 @@ chrome.windows.onFocusChanged.addListener(async () => {
   }
 });
 
-let wasLocked = false;
-
 // Chrome idle state changes: main logic
 chrome.idle.onStateChanged.addListener(async (state) => {
   if (state === "locked") {
-    wasLocked = true;
     log("System locked — clearing alarms...");
     try {
       await Promise.all([
@@ -334,17 +318,6 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     return;
   }
 
-  if (state === "active" && wasLocked) {
-    wasLocked = false;
-    log("System active after lock — rehydrating scheduler...");
-    try {
-      await rehydrateScheduler();
-    } catch (error) {
-      log(`Error rehydrating on wake: ${error.message}`);
-    }
-    return;
-  }
-
   if (state === "idle") log("System idle.");
-  if (state === "active") log("System active after idle.");
+  if (state === "active") log("System active.");
 });
