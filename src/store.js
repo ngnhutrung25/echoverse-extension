@@ -125,6 +125,10 @@ async function updateTodayStats() {
   const next = { ...current };
   next.recurringShown = (next.recurringShown || 0) + 1;
 
+  log(
+    `[updateTodayStats] recurringShown: ${current.recurringShown ?? 0} → ${next.recurringShown}`,
+  );
+
   await setData({
     [STORAGE_KEYS.DAILY_STATS]: {
       ...dailyStats,
