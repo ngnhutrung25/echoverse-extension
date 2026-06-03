@@ -61,8 +61,8 @@
 }
 
 #echoverse-overlay .echoverse-message {
-  margin: 16px 0 0;
-  max-width: 28rem;
+  margin-top: 16px;
+  margin-right: 20px;
   padding: 12px 14px;
   border-left: 3px solid #6b7280;
   border-radius: 0 16px 16px 0;

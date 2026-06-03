@@ -94,3 +94,11 @@ chrome.runtime.onMessage.addListener((message) => {
     removeOverlay();
   }
 });
+
+// Debug overlay (remove in production)
+// setTimeout(() => {
+//   showOverlay({
+//     imageUrl:
+//       "https://i.natgeofe.com/n/d35b89a0-cd33-4648-bf2d-459ad60b66ae/atedmunds.jpg",
+//   });
+// }, 500);
